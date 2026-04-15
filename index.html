@@ -120,7 +120,70 @@
         viewDayDetails();
     };
 
-    // --- MANAGE NAMES (PADDY & RICE) ---
+    // --- BACKUP WITH FOLDER PICKER ---
+    async function exportData() {
+        const data = { 
+            settings: await db.settings.toArray(), 
+            hulling: await db.hulling.toArray(), 
+            stock: await db.stock.toArray() 
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const fileName = `Mill_Backup_${new Date().toISOString().split('T')[0]}.json`;
+
+        if ('showSaveFilePicker' in window) {
+            try {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: fileName,
+                    types: [{
+                        description: 'JSON Backup File',
+                        accept: { 'application/json': ['.json'] },
+                    }],
+                });
+                const writable = await handle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+                alert("Backup successfully saved to your selected folder!");
+            } catch (err) {
+                console.log("Save cancelled or not supported, using default download.");
+                if(err.name !== 'AbortError') triggerDefaultDownload(blob, fileName);
+            }
+        } else {
+            triggerDefaultDownload(blob, fileName);
+        }
+    }
+
+    function triggerDefaultDownload(blob, fileName) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = fileName;
+        a.click();
+        alert("Saved to default downloads folder.");
+    }
+
+    // --- RESTORE DATA ---
+    async function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if(confirm("This will overwrite current data. Proceed?")) {
+                    await db.settings.clear(); await db.hulling.clear(); await db.stock.clear();
+                    if(data.settings) await db.settings.bulkAdd(data.settings);
+                    if(data.hulling) await db.hulling.bulkAdd(data.hulling);
+                    if(data.stock) await db.stock.bulkAdd(data.stock);
+                    
+                    await updateDropdowns();
+                    await viewDayDetails();
+                    alert("System Updated Successfully!");
+                }
+            } catch (err) { alert("Error: Invalid Backup File"); }
+        };
+        reader.readAsText(file);
+    }
+
+    // --- MANAGE NAMES ---
     async function addItem(cat) {
         const val = document.getElementById('new_item_val').value.trim();
         if(!val) return;
@@ -140,96 +203,51 @@
 
     async function updateDropdowns() {
         const items = await db.settings.toArray();
-        
-        // Settings UI
         document.getElementById('paddy_legend_list').innerHTML = "<h4>Paddy Types</h4>" + items.filter(i => i.category === 'paddy').map(p => `
             <div class="type-tag"><strong>${p.fullName}</strong>
             <button class="btn-del" onclick="deleteItem('settings', ${p.id})">Del</button>
             <button class="btn-edit" onclick="editVariety(${p.id})">Edit</button></div>`).join('');
-        
         document.getElementById('rice_name_list').innerHTML = "<h4>Rice Types</h4>" + items.filter(i => i.category === 'rice').map(r => `
             <div class="type-tag">${r.fullName}
             <button class="btn-del" onclick="deleteItem('settings', ${r.id})">Del</button>
             <button class="btn-edit" onclick="editVariety(${r.id})">Edit</button></div>`).join('');
-        
         updateStockDropdown();
     }
 
-    // --- DROPDOWN LOGIC (GOVARDHANA EXAMPLE) ---
     async function updateStockDropdown() {
         const action = document.getElementById('st_action').value;
         const items = await db.settings.toArray();
         let html = "";
-
         if(action === 'Purchase') {
             items.filter(i => i.category === 'paddy').forEach(p => {
-                const name = p.fullName;
-                // Auto-generate the 4 specific options you requested
-                html += `<option value="${name}-Red-O">${name}-Red-O</option>`;
-                html += `<option value="${name}-Red-N">${name}-Red-N</option>`;
-                html += `<option value="${name}-White-O">${name}-White-O</option>`;
-                html += `<option value="${name}-White-N">${name}-White-N</option>`;
+                const n = p.fullName;
+                html += `<option value="${n}-Red-O">${n}-Red-O</option><option value="${n}-Red-N">${n}-Red-N</option>`;
+                html += `<option value="${n}-White-O">${n}-White-O</option><option value="${n}-White-N">${n}-White-N</option>`;
             });
         } else if(action === 'Sale') {
             items.filter(i => i.category === 'rice').forEach(r => html += `<option value="${r.fullName}">${r.fullName}</option>`);
         } else {
-            html += `<option value="Husk">Husk</option><option value="Dust">Dust</option><option value="Empty Bags">Empty Bags</button>`;
+            html += `<option value="Husk">Husk</option><option value="Dust">Dust</option><option value="Empty Bags">Empty Bags</option>`;
         }
         document.getElementById('st_type').innerHTML = html;
     }
 
-    // --- DATA REFRESH FIX ---
-    async function importData(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const data = JSON.parse(e.target.result);
-                if(confirm("This will overwrite current data and update immediately. Proceed?")) {
-                    await db.settings.clear(); await db.hulling.clear(); await db.stock.clear();
-                    if(data.settings) await db.settings.bulkAdd(data.settings);
-                    if(data.hulling) await db.hulling.bulkAdd(data.hulling);
-                    if(data.stock) await db.stock.bulkAdd(data.stock);
-                    
-                    // Force interface update
-                    await updateDropdowns();
-                    await viewDayDetails();
-                    alert("System Updated Successfully!");
-                }
-            } catch (err) { alert("Error: Invalid Backup File"); }
-        };
-        reader.readAsText(file);
-    }
-
-    // --- EDITING CUSTOMER RECORDS ---
+    // --- TRANSACTION HELPERS ---
     async function editEntry(table, id) {
         const entry = await db[table].get(id);
         const newName = prompt("Edit Name:", entry.name);
         if (newName === null) return;
         const newQty = prompt("Edit Weight/Qty:", entry.weight);
         if (newQty === null) return;
-
         let updates = { name: newName, weight: newQty };
         if(table === 'hulling') {
-            const rate = prompt("Edit Rate (current total is based on weight):", entry.total / entry.weight);
+            const rate = prompt("Edit Rate:", entry.total / entry.weight);
             updates.total = (parseFloat(newQty) * parseFloat(rate)).toFixed(2);
         } else {
-            updates.amount = prompt("Edit Total Amount ₹:", entry.amount);
+            updates.amount = prompt("Edit Amount ₹:", entry.amount);
         }
-
         await db[table].update(id, updates);
         viewDayDetails();
-    }
-
-    // --- OTHER CORE FUNCTIONS ---
-    async function exportData() {
-        const data = { settings: await db.settings.toArray(), hulling: await db.hulling.toArray(), stock: await db.stock.toArray() };
-        const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `Mill_Backup_${new Date().toLocaleDateString()}.json`;
-        a.click();
     }
 
     async function viewDayDetails() {
@@ -239,16 +257,6 @@
         document.getElementById('day_customer_list').innerHTML = `
             <h3>Hulling History</h3>${h.map(e => `<div class="log-item"><button class="btn-del" onclick="deleteItem('hulling', ${e.id})">Del</button><button class="btn-edit" onclick="editEntry('hulling', ${e.id})">Edit</button><strong>${e.name}</strong><br>${e.weight}kg | ₹${e.total}</div>`).join('') || "No Records"}
             <h3>Stock History</h3>${s.map(e => `<div class="log-item"><button class="btn-del" onclick="deleteItem('stock', ${e.id})">Del</button><button class="btn-edit" onclick="editEntry('stock', ${e.id})">Edit</button><strong>${e.name}</strong> (${e.action})<br>${e.type} | ₹${e.amount}</div>`).join('') || "No Records"}`;
-    }
-
-    async function exportToExcel() {
-        const monthYear = document.getElementById('main_date_picker').value.substring(0, 7);
-        const h = await db.hulling.filter(x => x.date.startsWith(monthYear)).toArray();
-        const s = await db.stock.filter(x => x.date.startsWith(monthYear)).toArray();
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(h), "Hulling");
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s), "Stock_Transactions");
-        XLSX.writeFile(wb, `Mill_Report_${monthYear}.xlsx`);
     }
 
     function calculateHulling() {
@@ -263,6 +271,16 @@
     async function saveStockTx() {
         const d = { name: document.getElementById('st_name').value, action: document.getElementById('st_action').value, type: document.getElementById('st_type').value, weight: document.getElementById('st_weight').value, amount: document.getElementById('st_amount').value, date: document.getElementById('main_date_picker').value };
         if(!d.name) return alert("Enter Name"); await db.stock.add(d); viewDayDetails();
+    }
+
+    async function exportToExcel() {
+        const monthYear = document.getElementById('main_date_picker').value.substring(0, 7);
+        const h = await db.hulling.filter(x => x.date.startsWith(monthYear)).toArray();
+        const s = await db.stock.filter(x => x.date.startsWith(monthYear)).toArray();
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(h), "Hulling");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s), "Stock");
+        XLSX.writeFile(wb, `Report_${monthYear}.xlsx`);
     }
 
     function openTab(evt, tabName) {
