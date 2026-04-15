@@ -22,7 +22,7 @@
         .card { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         input, select { width: 100%; padding: 11px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; }
         label { font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 3px; }
-        button { border: none; border-radius: 8px; cursor: pointer; font-weight: 600; padding: 10px; }
+        button { border: none; border-radius: 8px; cursor: pointer; font-weight: 600; padding: 10px; transition: 0.2s; }
         .btn-main { background: var(--primary); color: white; width: 100%; padding: 14px; margin-top: 10px; }
         .btn-excel { background: #166534; color: white; }
         .btn-pdf { background: #991b1b; color: white; }
@@ -42,7 +42,7 @@
 
 <div class="nav-bar">
     <div class="nav-item active" onclick="openTab(event, 'hulling-tab')">Hulling</div>
-    <div class="nav-item" onclick="event, openTab(event, 'stock-tab')">Stock</div>
+    <div class="nav-item" onclick="openTab(event, 'stock-tab')">Stock</div>
     <div class="nav-item" onclick="openTab(event, 'bills-tab')">Expenses</div>
     <div class="nav-item" onclick="openTab(event, 'history-tab')">History</div>
     <div class="nav-item" onclick="openTab(event, 'dashboard-tab')">Dashboard</div>
@@ -85,9 +85,9 @@
             <input type="text" id="st_party" placeholder="Party Name">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                 <div><label>Quantity</label><input type="number" step="0.01" id="st_weight" oninput="calcStock()"></div>
-                <div><label>Rate/Q</label><input type="number" id="st_rate" oninput="calcStock()"></div>
+                <div><label>Rate/Q (Optional)</label><input type="number" id="st_rate" oninput="calcStock()"></div>
             </div>
-            <label>Total Value</label><input type="number" id="st_total" readonly style="background:#f1f5f9;">
+            <label>Total Value (Editable)</label><input type="number" id="st_total">
             <button class="btn-main" style="background:var(--secondary);" onclick="saveStock()">Save Stock</button>
         </div>
     </div>
@@ -151,13 +151,13 @@
                 <div id="l_p"><b>Paddy</b><hr></div><div id="l_r"><b>Rice</b><hr></div><div id="l_m"><b>Misc</b><hr></div>
             </div>
         </div>
-        <div class="card" style="background: #f8fafc;">
+        <div class="card" style="background: #f8fafc; border: 2px dashed #cbd5e1;">
             <h4>Data Management</h4>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                <button onclick="dbBackup()" style="background:#475569; color:white;">Backup Data</button>
-                <button onclick="document.getElementById('restore_input').click()" style="background:#0d47a1; color:white;">Restore Data</button>
+                <button onclick="dbBackup()" style="background:#475569; color:white;">Backup File</button>
+                <button onclick="document.getElementById('restore_input').click()" style="background:#0d47a1; color:white;">Restore File</button>
             </div>
-            <input type="file" id="restore_input" style="display:none" onchange="dbRestore(event)">
+            <input type="file" id="restore_input" style="display:none" accept=".json" onchange="dbRestore(event)">
         </div>
     </div>
 </div>
@@ -165,7 +165,7 @@
 <div id="toast">Saved</div>
 
 <script>
-    const db = new Dexie("RiceMill_V16");
+    const db = new Dexie("RiceMill_V18");
     db.version(1).stores({ 
         hulling: '++id,date,name,weight,rate,total,wages', 
         stock: '++id,date,name,action,cat,type,weight,rate,total', 
@@ -180,7 +180,7 @@
         document.getElementById('global_date').valueAsDate = new Date();
         const w = await db.config.get('wage_rate');
         if(!w) await db.config.put({id:'wage_rate', val:23}); else document.getElementById('cfg_wage_rate').value = w.val;
-        if(await db.vars.count() === 0) await db.vars.bulkAdd([{name:'Sona', cat:'paddy'}, {name:'Raw Rice', cat:'rice'}, {name:'Husk', cat:'misc'}]);
+        if(await db.vars.count() === 0) await db.vars.bulkAdd([{name:'Sona Masuri', cat:'paddy'}, {name:'RED', cat:'rice'}, {name:'Husk Waste', cat:'misc'}]);
         refreshAll();
     };
 
@@ -202,7 +202,7 @@
         const cat = sel.options[sel.selectedIndex]?.dataset.cat || 'misc';
         const kg = pWt(document.getElementById('st_weight').value, cat);
         const rate = parseFloat(document.getElementById('st_rate').value) || 0;
-        document.getElementById('st_total').value = ((kg/100) * rate).toFixed(2);
+        if(rate > 0) document.getElementById('st_total').value = ((kg/100) * rate).toFixed(2);
     }
 
     async function saveHulling() {
@@ -216,7 +216,7 @@
         const id = document.getElementById('st_id').value;
         const sel = document.getElementById('st_variety');
         const cat = sel.options[sel.selectedIndex].dataset.cat;
-        const d = { date: document.getElementById('global_date').value, name: document.getElementById('st_party').value, action: document.getElementById('st_action').value, cat: cat, type: `${cat.toUpperCase()} - ${document.getElementById('st_age').value} - ${document.getElementById('st_color').value} - ${sel.value}`, weight: document.getElementById('st_weight').value, rate: document.getElementById('st_rate').value, total: parseFloat(document.getElementById('st_total').value) };
+        const d = { date: document.getElementById('global_date').value, name: document.getElementById('st_party').value, action: document.getElementById('st_action').value, cat: cat, type: `${sel.value}`, weight: document.getElementById('st_weight').value, rate: document.getElementById('st_rate').value, total: parseFloat(document.getElementById('st_total').value) };
         if(id) await db.stock.update(parseInt(id), d); else await db.stock.add(d);
         resetForms(); refreshAll(); showToast("Stock Saved");
     }
@@ -237,7 +237,7 @@
         h.forEach(x => html += `<tr><td>${x.name}<br><small>Hulling</small></td><td>${fWt(pWt(x.weight,'paddy'),'paddy')}</td><td>₹${x.total}</td><td><button class="btn-bill" onclick="genHullingPDF(${x.id})">Bill</button> <button class="btn-edit" onclick="editH(${x.id})">Edit</button> <button class="btn-del" onclick="del('hulling',${x.id})">×</button></td></tr>`);
         s.forEach(x => html += `<tr><td>${x.type}<br><small>${x.action}</small></td><td>${fWt(pWt(x.weight,x.cat),x.cat)}</td><td>₹${x.total}</td><td><button class="btn-edit" onclick="editS(${x.id})">Edit</button> <button class="btn-del" onclick="del('stock',${x.id})">×</button></td></tr>`);
         b.forEach(x => html += `<tr style="color:red"><td>${x.cat}<br><small>${x.desc}</small></td><td>-</td><td>₹${x.amt}</td><td><button class="btn-edit" onclick="editB(${x.id})">Edit</button> <button class="btn-del" onclick="del('bills',${x.id})">×</button></td></tr>`);
-        document.getElementById('log_body').innerHTML = html || "<tr><td colspan='4'>No entries</td></tr>";
+        document.getElementById('log_body').innerHTML = html || "<tr><td colspan='4'>No entries today</td></tr>";
     }
 
     async function renderSummary() {
@@ -259,24 +259,24 @@
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         doc.setFontSize(18); doc.text("SHRI PARSHWANATHA RICE MILL", 105, 15, {align:"center"});
-        doc.setFontSize(10); doc.text("Sullalli, Sagara, Shimoga | Ph: 91xxxxxxxx", 105, 22, {align:"center"});
+        doc.setFontSize(10); doc.text("Proprietor: Jwalaprasad K J | Sullalli, Sagara | Ph: 91xxxxxxxx", 105, 22, {align:"center"});
         doc.line(15, 25, 195, 25);
-        doc.text(`Customer: ${x.name} | Date: ${x.date}`, 15, 35);
-        doc.autoTable({ startY: 45, head: [['Description', 'Quantity', 'Rate/Q', 'Total']], body: [['Paddy Hulling', fWt(pWt(x.weight,'paddy'),'paddy'), `Rs.${x.rate}`, `Rs.${x.total}`]], theme: 'grid' });
-        doc.save(`Bill_${x.name}.pdf`);
+        doc.text(`Bill Date: ${x.date} | Customer: ${x.name}`, 15, 35);
+        doc.autoTable({ startY: 42, head: [['Sl No', 'Description', 'Quantity', 'Rate/Q', 'Total Amount']], body: [[1, 'Paddy Hulling Service', fWt(pWt(x.weight,'paddy'),'paddy'), `Rs.${x.rate}`, `Rs.${x.total}`]], theme: 'grid' });
+        doc.save(`Bill_${x.name}_${x.date}.pdf`);
     }
 
     async function exportFullPDF() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.text(`Daily Report: ${document.getElementById('global_date').value}`, 15, 15);
+        doc.text(`Daily Activity Report: ${document.getElementById('global_date').value}`, 15, 15);
         doc.autoTable({ html: '#main_log_table', startY: 25 });
-        doc.save(`Report_${document.getElementById('global_date').value}.pdf`);
+        doc.save(`Daily_Report_${document.getElementById('global_date').value}.pdf`);
     }
 
     function exportFullExcel() {
         const wb = XLSX.utils.table_to_book(document.getElementById("main_log_table"));
-        XLSX.writeFile(wb, `Report_${document.getElementById('global_date').value}.xlsx`);
+        XLSX.writeFile(wb, `Mill_Report_${document.getElementById('global_date').value}.xlsx`);
     }
 
     async function editH(id) { const x = await db.hulling.get(id); document.getElementById('h_id').value=x.id; document.getElementById('h_name').value=x.name; document.getElementById('h_weight').value=x.weight; document.getElementById('h_rate').value=x.rate; document.getElementById('h_total').value=x.total; openTab(null,'hulling-tab'); }
@@ -311,10 +311,10 @@
     }
 
     async function addVar() { const n=document.getElementById('new_v_name').value; const c=document.getElementById('new_v_cat').value; if(n){ await db.vars.add({name:n, cat:c}); document.getElementById('new_v_name').value=""; refreshAll(); } }
-    async function delVar(id) { await db.vars.delete(id); refreshAll(); }
+    async function delVar(id) { if(confirm("Delete Variety?")) { await db.vars.delete(id); refreshAll(); } }
     async function saveWage() { await db.config.put({id:'wage_rate', val: parseFloat(document.getElementById('cfg_wage_rate').value)}); showToast("Wage Rate Updated"); }
     function openTab(e, id) { document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active')); document.getElementById(id).classList.add('active'); if(e) e.currentTarget.classList.add('active'); }
-    async function del(t, id) { if(confirm("Delete?")) { await db[t].delete(id); refreshAll(); } }
+    async function del(t, id) { if(confirm("Delete Record?")) { await db[t].delete(id); refreshAll(); } }
     function resetForms() { document.querySelectorAll('input').forEach(i => { if(i.type !== 'date' && i.id !== 'h_rate' && i.id !== 'cfg_wage_rate') i.value = ""; }); document.getElementById('h_id').value=""; document.getElementById('st_id').value=""; document.getElementById('b_id').value=""; }
     function showToast(m) { const t = document.getElementById('toast'); t.innerText = m; t.className = "show"; setTimeout(()=>t.className="", 2000); }
     
@@ -325,19 +325,36 @@
     }
 
     async function dbRestore(e) {
-        if(!confirm("Warning: This will delete current data and restore from the file. Proceed?")) return;
+        if(!confirm("Restore this backup? Current data will be replaced.")) return;
         const file = e.target.files[0];
         if(!file) return;
         const reader = new FileReader();
         reader.onload = async (ev) => {
-            const data = JSON.parse(ev.target.result);
-            await db.hulling.clear(); await db.stock.clear(); await db.bills.clear(); await db.vars.clear(); await db.config.clear();
-            await db.hulling.bulkAdd(data.h || []);
-            await db.stock.bulkAdd(data.s || []);
-            await db.bills.bulkAdd(data.b || []);
-            await db.vars.bulkAdd(data.v || []);
-            await db.config.bulkAdd(data.c || []);
-            location.reload();
+            try {
+                const data = JSON.parse(ev.target.result);
+                await Promise.all([db.hulling.clear(), db.stock.clear(), db.bills.clear(), db.vars.clear(), db.config.clear()]);
+
+                // SMART MAPPING FOR YOUR SPECIFIC BACKUP FILE
+                if(data.settings) {
+                    const mappedVars = data.settings.map(v => ({ name: v.fullName, cat: v.category }));
+                    await db.vars.bulkAdd(mappedVars);
+                }
+                if(data.hulling) {
+                    const mappedHulling = data.hulling.map(h => ({ date: h.date, name: h.name, weight: h.weight, rate: 150, total: parseFloat(h.total), wages: (parseFloat(h.weight)*23) }));
+                    await db.hulling.bulkAdd(mappedHulling);
+                }
+                if(data.stock) {
+                    const mappedStock = data.stock.map(s => ({ date: s.date, name: s.name, action: s.action, type: s.type, weight: s.weight, total: parseFloat(s.amount), cat: s.type.includes('Rice') ? 'rice' : 'paddy' }));
+                    await db.stock.bulkAdd(mappedStock);
+                }
+                if(data.expenses) {
+                    const mappedBills = data.expenses.map(ex => ({ date: ex.date, cat: ex.type, desc: ex.name, amt: parseFloat(ex.amount) }));
+                    await db.bills.bulkAdd(mappedBills);
+                }
+
+                alert("Data Restored. Reloading...");
+                location.reload();
+            } catch(err) { alert("Error reading backup file."); console.error(err); }
         };
         reader.readAsText(file);
     }
