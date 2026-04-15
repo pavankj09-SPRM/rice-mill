@@ -182,7 +182,12 @@
         let html = "";
         if(action === 'Purchase') {
             items.filter(i => i.category === 'paddy').forEach(p => {
-                html += `<option value="${p.fullName}-Red-O">${p.fullName}-Red-O</option><option value="${p.fullName}-White-O">${p.fullName}-White-O</option>`;
+                const n = p.fullName;
+                // FIXED: Added Red-N and White-N options
+                html += `<option value="${n}-Red-O">${n}-Red-O</option>`;
+                html += `<option value="${n}-Red-N">${n}-Red-N</option>`;
+                html += `<option value="${n}-White-O">${n}-White-O</option>`;
+                html += `<option value="${n}-White-N">${n}-White-N</option>`;
             });
         } else if(action === 'Sale') {
             items.filter(i => i.category === 'rice').forEach(r => html += `<option value="${r.fullName}">${r.fullName}</option>`);
@@ -253,7 +258,6 @@
         const d = { name: document.getElementById('st_name').value.trim(), action: document.getElementById('st_action').value, type: document.getElementById('st_type').value, weight: document.getElementById('st_weight').value, amount: document.getElementById('st_amount').value, date: document.getElementById('main_date_picker').value };
         if(!d.name || !d.weight) return alert("Please fill Party Name and Quantity.");
         await db.stock.add(d); viewDayDetails(); refreshDashboard();
-        // Reset Form
         document.getElementById('st_name').value = "";
         document.getElementById('st_weight').value = "";
         document.getElementById('st_rate').value = "";
