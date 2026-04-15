@@ -90,7 +90,6 @@
             <label style="margin-top:10px;">Restore/Update from File:</label>
             <input type="file" id="import_file" accept=".json" onchange="importData(event)">
         </div>
-
         <div class="card">
             <h3>Manage Names</h3>
             <div id="paddy_legend_list"></div>
@@ -120,85 +119,94 @@
         viewDayDetails();
     };
 
-    // --- BACKUP WITH FOLDER PICKER ---
-    async function exportData() {
-        const data = { 
-            settings: await db.settings.toArray(), 
-            hulling: await db.hulling.toArray(), 
-            stock: await db.stock.toArray() 
-        };
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-        const fileName = `Mill_Backup_${new Date().toISOString().split('T')[0]}.json`;
+    // --- PDF GENERATION ENGINE ---
+    function generateHullingPDF(data) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Header
+        doc.setFontSize(18);
+        doc.setTextColor(46, 125, 50); // Primary Green
+        doc.text("PARSHWANATHA RICE MILL", 105, 20, {align: "center"});
+        
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        doc.text("SULLALLI, KARNATAKA", 105, 27, {align: "center"});
+        doc.line(20, 32, 190, 32);
 
-        if ('showSaveFilePicker' in window) {
-            try {
-                const handle = await window.showSaveFilePicker({
-                    suggestedName: fileName,
-                    types: [{
-                        description: 'JSON Backup File',
-                        accept: { 'application/json': ['.json'] },
-                    }],
-                });
-                const writable = await handle.createWritable();
-                await writable.write(blob);
-                await writable.close();
-                alert("Backup successfully saved to your selected folder!");
-            } catch (err) {
-                console.log("Save cancelled or not supported, using default download.");
-                if(err.name !== 'AbortError') triggerDefaultDownload(blob, fileName);
-            }
-        } else {
-            triggerDefaultDownload(blob, fileName);
+        // Bill Info
+        doc.setFontSize(12);
+        doc.text(`Customer: ${data.name}`, 20, 45);
+        doc.text(`Date: ${data.date}`, 150, 45);
+
+        // Table Structure
+        doc.rect(20, 55, 170, 40);
+        doc.line(20, 65, 190, 65);
+        doc.line(140, 55, 140, 95);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Description", 25, 61);
+        doc.text("Details", 145, 61);
+
+        doc.setFont("helvetica", "normal");
+        doc.text("Paddy Hulling Service", 25, 75);
+        doc.text(`${data.weight} kg`, 145, 75);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("TOTAL BILL", 25, 88);
+        doc.text(`Rs. ${data.total}`, 145, 88);
+
+        doc.setFontSize(9);
+        doc.text("Authorized Signature", 150, 115);
+        
+        doc.save(`Hulling_Bill_${data.name}.pdf`);
+    }
+
+    // --- CORE SAVE LOGIC ---
+    async function saveHullingEntry() {
+        const nameInput = document.getElementById('h_name').value.trim();
+        const weightInput = document.getElementById('h_weight').value;
+        const totalValue = document.getElementById('h_total_display').innerText;
+        const dateInput = document.getElementById('main_date_picker').value;
+
+        if(!nameInput || !weightInput) {
+            alert("Please enter Customer Name and Weight");
+            return;
         }
-    }
 
-    function triggerDefaultDownload(blob, fileName) {
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = fileName;
-        a.click();
-        alert("Saved to default downloads folder.");
-    }
-
-    // --- RESTORE DATA ---
-    async function importData(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const data = JSON.parse(e.target.result);
-                if(confirm("This will overwrite current data. Proceed?")) {
-                    await db.settings.clear(); await db.hulling.clear(); await db.stock.clear();
-                    if(data.settings) await db.settings.bulkAdd(data.settings);
-                    if(data.hulling) await db.hulling.bulkAdd(data.hulling);
-                    if(data.stock) await db.stock.bulkAdd(data.stock);
-                    
-                    await updateDropdowns();
-                    await viewDayDetails();
-                    alert("System Updated Successfully!");
-                }
-            } catch (err) { alert("Error: Invalid Backup File"); }
+        const hullingData = {
+            name: nameInput,
+            weight: weightInput,
+            total: totalValue,
+            date: dateInput
         };
-        reader.readAsText(file);
+
+        // 1. Save to Database
+        await db.hulling.add(hullingData);
+        
+        // 2. Generate PDF
+        generateHullingPDF(hullingData);
+        
+        // 3. Refresh History & Clear Inputs
+        viewDayDetails();
+        document.getElementById('h_name').value = "";
+        document.getElementById('h_weight').value = "";
+        document.getElementById('h_total_display').innerText = "0.00";
     }
 
-    // --- MANAGE NAMES ---
+    // --- OTHER UI LOGIC (RETAINED) ---
+    function calculateHulling() {
+        const weight = document.getElementById('h_weight').value || 0;
+        const rate = document.getElementById('h_rate').value || 0;
+        document.getElementById('h_total_display').innerText = (weight * rate).toFixed(2);
+    }
+
     async function addItem(cat) {
         const val = document.getElementById('new_item_val').value.trim();
         if(!val) return;
         await db.settings.add({ fullName: val, category: cat });
         updateDropdowns();
         document.getElementById('new_item_val').value = '';
-    }
-
-    async function editVariety(id) {
-        const item = await db.settings.get(id);
-        const newVal = prompt("Edit Name:", item.fullName);
-        if(newVal) {
-            await db.settings.update(id, { fullName: newVal.trim() });
-            updateDropdowns();
-        }
     }
 
     async function updateDropdowns() {
@@ -232,55 +240,18 @@
         document.getElementById('st_type').innerHTML = html;
     }
 
-    // --- TRANSACTION HELPERS ---
-    async function editEntry(table, id) {
-        const entry = await db[table].get(id);
-        const newName = prompt("Edit Name:", entry.name);
-        if (newName === null) return;
-        const newQty = prompt("Edit Weight/Qty:", entry.weight);
-        if (newQty === null) return;
-        let updates = { name: newName, weight: newQty };
-        if(table === 'hulling') {
-            const rate = prompt("Edit Rate:", entry.total / entry.weight);
-            updates.total = (parseFloat(newQty) * parseFloat(rate)).toFixed(2);
-        } else {
-            updates.amount = prompt("Edit Amount ₹:", entry.amount);
-        }
-        await db[table].update(id, updates);
-        viewDayDetails();
-    }
-
     async function viewDayDetails() {
         const date = document.getElementById('main_date_picker').value;
         const h = await db.hulling.where('date').equals(date).toArray();
         const s = await db.stock.where('date').equals(date).toArray();
         document.getElementById('day_customer_list').innerHTML = `
-            <h3>Hulling History</h3>${h.map(e => `<div class="log-item"><button class="btn-del" onclick="deleteItem('hulling', ${e.id})">Del</button><button class="btn-edit" onclick="editEntry('hulling', ${e.id})">Edit</button><strong>${e.name}</strong><br>${e.weight}kg | ₹${e.total}</div>`).join('') || "No Records"}
-            <h3>Stock History</h3>${s.map(e => `<div class="log-item"><button class="btn-del" onclick="deleteItem('stock', ${e.id})">Del</button><button class="btn-edit" onclick="editEntry('stock', ${e.id})">Edit</button><strong>${e.name}</strong> (${e.action})<br>${e.type} | ₹${e.amount}</div>`).join('') || "No Records"}`;
-    }
-
-    function calculateHulling() {
-        document.getElementById('h_total_display').innerText = ((document.getElementById('h_weight').value || 0) * (document.getElementById('h_rate').value || 0)).toFixed(2);
-    }
-
-    async function saveHullingEntry() {
-        const d = { name: document.getElementById('h_name').value, weight: document.getElementById('h_weight').value, total: document.getElementById('h_total_display').innerText, date: document.getElementById('main_date_picker').value };
-        if(!d.name) return alert("Enter Name"); await db.hulling.add(d); viewDayDetails();
+            <h3>Daily Hulling</h3>${h.map(e => `<div class="log-item"><button class="btn-del" onclick="deleteItem('hulling', ${e.id})">Del</button><strong>${e.name}</strong><br>${e.weight}kg | ₹${e.total}</div>`).join('') || "No Records"}
+            <h3>Daily Stock</h3>${s.map(e => `<div class="log-item"><button class="btn-del" onclick="deleteItem('stock', ${e.id})">Del</button><strong>${e.name}</strong> (${e.action})<br>${e.type} | ₹${e.amount}</div>`).join('') || "No Records"}`;
     }
 
     async function saveStockTx() {
         const d = { name: document.getElementById('st_name').value, action: document.getElementById('st_action').value, type: document.getElementById('st_type').value, weight: document.getElementById('st_weight').value, amount: document.getElementById('st_amount').value, date: document.getElementById('main_date_picker').value };
         if(!d.name) return alert("Enter Name"); await db.stock.add(d); viewDayDetails();
-    }
-
-    async function exportToExcel() {
-        const monthYear = document.getElementById('main_date_picker').value.substring(0, 7);
-        const h = await db.hulling.filter(x => x.date.startsWith(monthYear)).toArray();
-        const s = await db.stock.filter(x => x.date.startsWith(monthYear)).toArray();
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(h), "Hulling");
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s), "Stock");
-        XLSX.writeFile(wb, `Report_${monthYear}.xlsx`);
     }
 
     function openTab(evt, tabName) {
@@ -291,6 +262,30 @@
     }
 
     async function deleteItem(table, id) { if(confirm("Delete?")) { await db[table].delete(id); if(table==='settings') updateDropdowns(); else viewDayDetails(); } }
+
+    // --- FOLDER PICKER BACKUP ---
+    async function exportData() {
+        const data = { settings: await db.settings.toArray(), hulling: await db.hulling.toArray(), stock: await db.stock.toArray() };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const fileName = `Mill_Backup_${new Date().toISOString().split('T')[0]}.json`;
+
+        if ('showSaveFilePicker' in window) {
+            try {
+                const handle = await window.showSaveFilePicker({ suggestedName: fileName });
+                const writable = await handle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+                alert("Backup Saved!");
+            } catch (err) { triggerDefaultDownload(blob, fileName); }
+        } else { triggerDefaultDownload(blob, fileName); }
+    }
+
+    function triggerDefaultDownload(blob, fileName) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = fileName;
+        a.click();
+    }
 </script>
 </body>
 </html>
