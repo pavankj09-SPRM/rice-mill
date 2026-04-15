@@ -21,11 +21,12 @@
         label { display: block; margin: 8px 0 4px; font-size: 0.85rem; font-weight: bold; color: #555; }
         input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; margin-bottom: 5px; }
         button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; margin-top: 10px; cursor: pointer; }
-        .btn-del { width: auto; padding: 6px 12px; background: var(--danger); font-size: 0.75rem; margin-top: 0; float: right; border-radius: 4px; }
+        .btn-del { width: auto; padding: 4px 8px; background: var(--danger); font-size: 0.7rem; margin-top: 0; float: right; border-radius: 4px; margin-left: 5px; }
+        .btn-edit { width: auto; padding: 4px 8px; background: var(--secondary); font-size: 0.7rem; margin-top: 0; float: right; border-radius: 4px; }
         .log-item { background: #fdfdfd; padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; }
         .settings-row { display: flex; gap: 5px; margin-bottom: 10px; }
-        .type-tag { display: block; background: #f9f9f9; padding: 8px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 5px; font-size: 0.9rem; }
-        .code-preview { color: var(--secondary); font-weight: bold; font-family: monospace; }
+        .type-tag { display: block; background: #f9f9f9; padding: 10px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 8px; font-size: 0.9rem; position: relative; }
+        .code-preview { color: var(--secondary); font-weight: bold; font-family: monospace; border-bottom: 1px dashed var(--secondary); }
     </style>
 </head>
 <body>
@@ -47,7 +48,7 @@
             <input type="text" id="h_name" placeholder="Enter Name">
             <label>Paddy Weight (kg)</label>
             <input type="number" id="h_weight" oninput="calculateHulling()">
-            <div class="grid">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
                 <div><label>Rate (₹/kg)</label><input type="number" id="h_rate" value="2.50" oninput="calculateHulling()"></div>
                 <div><label>Bags</label><input type="number" id="h_bags" value="1"></div>
             </div>
@@ -64,10 +65,8 @@
                 <option value="Purchase">Stock In (Purchase Paddy)</option>
                 <option value="Sale">Stock Out (Sell Rice)</option>
             </select>
-            
             <label id="stock_label">Select Item</label>
             <select id="st_type"></select>
-            
             <label>Weight (kg)</label>
             <input type="number" id="st_weight">
             <label>Total Amount (₹)</label>
@@ -82,22 +81,15 @@
             <label>Select Date</label>
             <input type="date" id="history_date_picker" onchange="viewDayDetails()">
         </div>
-        <div class="card">
-            <h3>Summary for <span id="display_date"></span></h3>
-            <div class="grid">
-                <div style="text-align:center">Hulling Income<br><strong id="day_hulling">₹0</strong></div>
-                <div style="text-align:center">Stock Amount<br><strong id="day_stock">₹0</strong></div>
-            </div>
-        </div>
         <div id="day_customer_list"></div>
     </div>
 
     <div id="settings-tab" class="tab-content">
         <div class="card">
-            <h3>Paddy Codes Legend</h3>
+            <h3>Paddy Varieties & Short Codes</h3>
             <div id="paddy_legend_list"></div>
             <hr>
-            <label>Add New Paddy Variety</label>
+            <label>Add New Variety</label>
             <div class="settings-row">
                 <input type="text" id="new_paddy_base" placeholder="e.g. Farm IT">
                 <button style="width:80px; margin-top:0" onclick="addItem('paddy')">Add</button>
@@ -105,18 +97,19 @@
         </div>
 
         <div class="card">
-            <h3>Rice Settings</h3>
+            <h3>Rice Varieties (Full Name)</h3>
+            <div id="rice_name_list"></div>
+            <hr>
             <div class="settings-row">
                 <input type="text" id="new_rice_name" placeholder="e.g. Premium SM Rice">
                 <button style="width:80px; margin-top:0" onclick="addItem('rice')">Add</button>
             </div>
-            <div id="rice_name_list"></div>
         </div>
     </div>
 </div>
 
 <script>
-    const db = new Dexie("MillDB_V8");
+    const db = new Dexie("MillDB_V9");
     db.version(1).stores({
         hulling: '++id, date, name, weight, total',
         stock: '++id, date, action, type, weight, amount',
@@ -169,55 +162,37 @@
         const paddies = items.filter(i => i.category === 'paddy');
         const rices = items.filter(i => i.category === 'rice');
 
-        // Settings View for Paddy
         document.getElementById('paddy_legend_list').innerHTML = paddies.map(p => `
             <div class="type-tag">
                 <strong>${p.fullName}</strong> → <span class="code-preview">${p.shortName}</span>
-                <span style="color:red; cursor:pointer; float:right" onclick="deleteItem(${p.id})">[Delete]</span>
-                <div style="font-size:0.7rem; color:#888">Codes: W-${p.shortName}-N, W-${p.shortName}-O, R-${p.shortName}-N, R-${p.shortName}-O</div>
+                <button class="btn-del" onclick="deleteItem(${p.id})">Delete</button>
+                <button class="btn-edit" onclick="editShortName(${p.id}, '${p.shortName}')">Edit Code</button>
+                <div style="font-size:0.7rem; color:#888; margin-top:5px">Sample: W-${p.shortName}-N, R-${p.shortName}-O</div>
             </div>`).join('');
         
-        // Settings View for Rice
         document.getElementById('rice_name_list').innerHTML = rices.map(r => `
             <div class="type-tag">
-                ${r.fullName} <span style="color:red; cursor:pointer; float:right" onclick="deleteItem(${r.id})">[Delete]</span>
+                ${r.fullName} 
+                <button class="btn-del" onclick="deleteItem(${r.id})">Delete</button>
             </div>`).join('');
         
         updateStockDropdown();
     }
 
-    async function updateStockDropdown() {
-        const action = document.getElementById('st_action').value;
-        const dropdown = document.getElementById('st_type');
-        const items = await db.settings.toArray();
-        let html = "";
-
-        if(action === 'Purchase') {
-            document.getElementById('stock_label').innerText = "Select Paddy Code";
-            items.filter(i => i.category === 'paddy').forEach(p => {
-                const s = p.shortName;
-                html += `<option value="W-${s}-N">W-${s}-N (White New)</option>`;
-                html += `<option value="W-${s}-O">W-${s}-O (White Old)</option>`;
-                html += `<option value="R-${s}-N">R-${n}-N (Red New)</option>`; // Fixed typo: n -> s
-                html += `<option value="R-${s}-O">R-${s}-O (Red Old)</option>`;
-            });
-            // Correction for typo in loop
-            html = html.replaceAll('R-${n}-N', 'R-${s}-N'); 
-        } else {
-            document.getElementById('stock_label').innerText = "Select Rice Type";
-            items.filter(i => i.category === 'rice').forEach(r => {
-                html += `<option value="${r.fullName}">${r.fullName}</option>`;
-            });
+    async function editShortName(id, current) {
+        const newCode = prompt("Enter new Short Code:", current);
+        if (newCode != null && newCode.trim() !== "") {
+            await db.settings.update(id, { shortName: newCode.trim().toUpperCase() });
+            updateDropdowns();
         }
-        dropdown.innerHTML = html || "<option>Add items in Settings</option>";
     }
 
-    // Manual fix for string template in updateStockDropdown
     async function updateStockDropdown() {
         const action = document.getElementById('st_action').value;
         const dropdown = document.getElementById('st_type');
         const items = await db.settings.toArray();
         let html = "";
+
         if(action === 'Purchase') {
             items.filter(i => i.category === 'paddy').forEach(p => {
                 const s = p.shortName;
@@ -235,8 +210,7 @@
     }
 
     async function deleteItem(id) {
-        await db.settings.delete(id);
-        updateDropdowns();
+        if(confirm("Are you sure?")) { await db.settings.delete(id); updateDropdowns(); }
     }
 
     function calculateHulling() {
@@ -279,11 +253,8 @@
 
     async function viewDayDetails() {
         const selectedDate = document.getElementById('history_date_picker').value;
-        document.getElementById('display_date').innerText = selectedDate;
         const hEntries = await db.hulling.where('date').equals(selectedDate).toArray();
         const sEntries = await db.stock.where('date').equals(selectedDate).toArray();
-        document.getElementById('day_hulling').innerText = "₹" + hEntries.reduce((a, b) => a + b.total, 0).toFixed(2);
-        document.getElementById('day_stock').innerText = "₹" + sEntries.reduce((a, b) => a + b.amount, 0).toFixed(2);
         const list = hEntries.map(e => `<div class="log-item"><button class="btn-del" onclick="deleteHulling(${e.id})">Delete</button><strong>${e.name}</strong><br>Hulling: ${e.weight}kg | ₹${e.total}</div>`).join('');
         const stockList = sEntries.map(e => `<div class="log-item" style="border-left: 4px solid var(--secondary)"><button class="btn-del" onclick="deleteStock(${e.id})">Delete</button><strong>${e.action}: ${e.type}</strong><br>${e.weight}kg | ₹${e.amount}</div>`).join('');
         document.getElementById('day_customer_list').innerHTML = `<h3>Customer List</h3>${list || "<p>None</p>"}<h3>Stock/Sales</h3>${stockList || "<p>None</p>"}`;
