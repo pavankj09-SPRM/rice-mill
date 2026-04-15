@@ -29,7 +29,6 @@
         .summary-table td { padding: 12px; border-bottom: 1px solid #eee; }
         .text-right { text-align: right; }
 
-        .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
         .item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #fcfcfc; border: 1px solid #edf0f2; border-radius: 8px; margin-bottom: 8px; }
         
         .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
@@ -40,11 +39,11 @@
         .stat-val { font-size: 1.3rem; font-weight: 800; display: block; margin-top: 4px; }
         .stat-label { font-size: 0.75rem; text-transform: uppercase; font-weight: 600; opacity: 0.9; }
 
-        input, select { width: 100%; padding: 12px 15px; border: 1.5px solid #e0e0e0; border-radius: 10px; box-sizing: border-box; font-size: 1rem; margin-bottom: 12px; }
+        input, select { width: 100%; padding: 12px 15px; border: 1.5 solid #e0e0e0; border-radius: 10px; box-sizing: border-box; font-size: 1rem; margin-bottom: 12px; }
         button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.3s; }
         .btn-sm { padding: 6px 12px; font-size: 0.75rem; border-radius: 6px; margin-left: 5px; width: auto; font-weight: 600; }
-        .btn-del { background: #fee2e2; color: #dc2626; }
-        .btn-edit { background: #fff3e0; color: #ef6c00; }
+        .btn-del { background: #fee2e2; color: #dc2626; border: none;}
+        .btn-edit { background: #fff3e0; color: #ef6c00; border: none;}
         
         .log-card { background: white; border-left: 6px solid #ccc; padding: 15px; margin-bottom: 10px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; }
         .hulling-border { border-left-color: var(--edit); }
@@ -109,7 +108,7 @@
                 <input type="number" id="st_rate" placeholder="Rate" oninput="calculateStockTotal()">
             </div>
             <input type="number" id="st_amount" placeholder="Total Amount (₹)">
-            <button class="btn-sec" style="background: var(--secondary);" onclick="saveStockTx()" id="st_save_btn">Record Stock Tx</button>
+            <button style="background: var(--secondary);" onclick="saveStockTx()" id="st_save_btn">Record Stock Tx</button>
             <button onclick="resetStockForm()" id="st_cancel_btn" style="display:none; margin-top:10px; background: #6c757d;">Cancel Edit</button>
         </div>
     </div>
@@ -187,7 +186,7 @@
 </div>
 
 <script>
-    const db = new Dexie("MillDB_V_ProFixed_V4");
+    const db = new Dexie("MillDB_V_ProFinal_V5");
     db.version(1).stores({
         hulling: '++id, date, name, weight, total',
         stock: '++id, date, name, action, type, weight, amount',
@@ -213,7 +212,7 @@
         updateSettingsGrid(); viewDayLog(); refreshDashboard(); generateSummary();
     }
 
-    // --- MATH LOGIC ---
+    // --- SMART FORMATTING LOGIC ---
     function qntoKg(val) {
         let num = parseFloat(val) || 0;
         let qnt = Math.floor(num);
@@ -221,20 +220,21 @@
         return (qnt * 100) + kg;
     }
 
-    // New logic for Summary: Converts total KG back to Decimal Quintal (150kg -> 1.50)
-    function kgToDecimalQnt(totalKg) {
-        let qnt = Math.floor(totalKg / 100);
-        let kg = Math.round(totalKg % 100);
-        let kgStr = kg < 10 ? '0' + kg : kg; // Ensure 1.05 instead of 1.5
-        return `${qnt}.${kgStr}`;
+    function formatWeight(totalKg, forceQuintal = false) {
+        if (forceQuintal || totalKg >= 100) {
+            let qnt = Math.floor(totalKg / 100);
+            let kg = Math.round(totalKg % 100);
+            let kgStr = kg < 10 ? '0' + kg : kg;
+            return `${qnt}.${kgStr} Q`;
+        }
+        return `${Math.round(totalKg)} kg`;
     }
 
-    // --- HULLING ---
+    // --- CORE TAB FUNCTIONS ---
     function calculateHulling() {
         const totalKg = qntoKg(document.getElementById('h_weight').value);
         const rate = parseFloat(document.getElementById('h_rate').value) || 0;
-        const total = (totalKg / 100) * rate; 
-        document.getElementById('h_total_input').value = Math.round(total);
+        document.getElementById('h_total_input').value = Math.round((totalKg / 100) * rate);
     }
 
     async function saveHullingEntry() {
@@ -252,7 +252,6 @@
         document.getElementById('h_cancel_btn').style.display = "none";
     }
 
-    // --- STOCK / INVENTORY ---
     function calculateStockTotal() { 
         const totalKg = qntoKg(document.getElementById('st_weight').value);
         const rate = parseFloat(document.getElementById('st_rate').value) || 0;
@@ -268,24 +267,17 @@
         else await db.stock.add(entry);
         resetStockForm(); showToast("Stock Saved"); refreshAll();
     }
+
     function resetStockForm() { document.getElementById('st_edit_id').value = ""; document.getElementById('st_name').value = ""; document.getElementById('st_weight').value = ""; document.getElementById('st_amount').value = ""; document.getElementById('st_cancel_btn').style.display = "none"; }
 
-    // --- BILLS ---
-    function clearBillInputs() {
-        document.getElementById('exp_name').value = "";
-        document.getElementById('exp_amount').value = "";
-    }
-    function setElectricityBill() {
-        clearBillInputs();
-        document.getElementById('exp_type_cat').value = "Electricity"; 
-        document.getElementById('exp_name').value = "Electricity Bill";
-    }
+    function clearBillInputs() { document.getElementById('exp_name').value = ""; document.getElementById('exp_amount').value = ""; }
+    function setElectricityBill() { clearBillInputs(); document.getElementById('exp_type_cat').value = "Electricity"; document.getElementById('exp_name').value = "Electricity Bill"; }
     async function autoCalculateWages() { 
         clearBillInputs();
         const hs = await db.hulling.where('date').equals(document.getElementById('main_date_picker').value).toArray(); 
         const tKg = hs.reduce((s, i) => s + qntoKg(i.weight), 0); 
         document.getElementById('exp_type_cat').value = "Wages";
-        document.getElementById('exp_name').value = `Labours (${kgToDecimalQnt(tKg)})`; 
+        document.getElementById('exp_name').value = `Labours (${formatWeight(tKg)})`; 
         document.getElementById('exp_amount').value = Math.round(tKg * 0.23); 
     }
     async function saveExpense() {
@@ -297,22 +289,28 @@
     }
     function resetExpenseForm() { document.getElementById('exp_edit_id').value = ""; document.getElementById('exp_name').value = ""; document.getElementById('exp_amount').value = ""; document.getElementById('exp_cancel_btn').style.display = "none"; }
 
-    // --- SUMMARY (Updated for Decimal View) ---
+    // --- SUMMARY (Updated for Paddy force Q) ---
     async function generateSummary() {
         const dStr = document.getElementById('main_date_picker').value;
         const filter = currentSummaryView === 'month' ? dStr.substring(0, 7) : dStr.substring(0, 4);
         const allStock = await db.stock.toArray();
         const filtered = allStock.filter(x => x.date.startsWith(filter));
         const summary = {};
+        
+        // We need to know which items are Paddy to apply the forceQuintal rule
+        const settings = await db.settings.toArray();
+        const paddyItems = settings.filter(s => s.category === 'paddy').map(s => s.fullName);
+
         filtered.forEach(i => { 
             if(!summary[i.type]) summary[i.type] = { weightKg: 0, cash: 0 }; 
             summary[i.type].weightKg += qntoKg(i.weight); 
             summary[i.type].cash += (i.amount || 0); 
         });
         
-        let html = `<table class="summary-table"><thead><tr><th>Variety / Item</th><th class="text-right">Weight (Qnt)</th><th class="text-right">Value (₹)</th></tr></thead><tbody>`;
+        let html = `<table class="summary-table"><thead><tr><th>Variety / Item</th><th class="text-right">Weight</th><th class="text-right">Value (₹)</th></tr></thead><tbody>`;
         for(let key in summary) { 
-            html += `<tr><td>${key}</td><td class="text-right">${kgToDecimalQnt(summary[key].weightKg)}</td><td class="text-right">₹${summary[key].cash.toLocaleString()}</td></tr>`; 
+            const isPaddy = paddyItems.some(p => key.startsWith(p));
+            html += `<tr><td>${key}</td><td class="text-right">${formatWeight(summary[key].weightKg, isPaddy)}</td><td class="text-right">₹${summary[key].cash.toLocaleString()}</td></tr>`; 
         }
         html += `</tbody></table>`;
         document.getElementById('summary_display').innerHTML = html;
@@ -346,10 +344,7 @@
         document.getElementById('sett_cancel_btn').style.display = "block";
         window.scrollTo(0,0);
     }
-    function resetSettForm() {
-        document.getElementById('sett_edit_id').value = ""; document.getElementById('new_item_val').value = "";
-        document.getElementById('sett_save_btn').innerText = "+ Add Variety"; document.getElementById('sett_cancel_btn').style.display = "none";
-    }
+    function resetSettForm() { document.getElementById('sett_edit_id').value = ""; document.getElementById('new_item_val').value = ""; document.getElementById('sett_save_btn').innerText = "+ Add Variety"; document.getElementById('sett_cancel_btn').style.display = "none"; }
     async function addItemFromSelect() {
         const id = document.getElementById('sett_edit_id').value;
         const name = document.getElementById('new_item_val').value.trim();
@@ -360,15 +355,28 @@
         resetSettForm(); refreshAll();
     }
 
-    // --- DAILY LOG ---
+    // --- DASHBOARD (Always Force Quintal) ---
+    async function refreshDashboard() {
+        const d = document.getElementById('main_date_picker').value;
+        const h = await db.hulling.where('date').equals(d).toArray();
+        const s = await db.stock.where('date').equals(d).toArray();
+        const e = await db.expenses.where('date').equals(d).toArray();
+        const tKg = h.reduce((acc, curr) => acc + qntoKg(curr.weight), 0);
+        const inc = h.reduce((a,b)=>a+parseFloat(b.total),0) + s.filter(x=>x.action==='Sale').reduce((a,b)=>a+b.amount,0);
+        const exp = s.filter(x=>x.action==='Purchase').reduce((a,b)=>a+b.amount,0) + e.reduce((a,b)=>a+b.amount,0);
+        document.getElementById('dash_stats_container').innerHTML = `<div class="stat-box stat-hulling"><span class="stat-label">Daily Hulling</span><span class="stat-val">${formatWeight(tKg, true)}</span></div><div class="stat-box stat-income"><span class="stat-label">Income</span><span class="stat-val">₹${inc}</span></div><div class="stat-box stat-expense"><span class="stat-label">Expense</span><span class="stat-val">₹${exp}</span></div>`;
+        if(myChart) myChart.destroy();
+        myChart = new Chart(document.getElementById('financeChart'), { type: 'doughnut', data: { labels: ['Income', 'Expense'], datasets: [{ data: [inc, exp], backgroundColor: ['#2e7d32', '#d32f2f'] }] }, options: { maintainAspectRatio: false } });
+    }
+
     async function viewDayLog() {
         const d = document.getElementById('main_date_picker').value;
         const h = await db.hulling.where('date').equals(d).toArray();
         const s = await db.stock.where('date').equals(d).toArray();
         const e = await db.expenses.where('date').equals(d).toArray();
         let html = "";
-        h.forEach(x => { html += `<div class="log-card hulling-border"><div><b>${x.name}</b><br><small>${kgToDecimalQnt(qntoKg(x.weight))}</small></div><div class="log-amt">₹${x.total} <button class="btn-sm btn-edit" onclick="editEntry('hulling',${x.id})">✎</button></div></div>`; });
-        s.forEach(x => { html += `<div class="log-card stock-border"><div><b>${x.action}: ${x.type}</b><br><small>${kgToDecimalQnt(qntoKg(x.weight))}</small></div><div class="log-amt">₹${x.amount} <button class="btn-sm btn-edit" onclick="editEntry('stock',${x.id})">✎</button></div></div>`; });
+        h.forEach(x => { html += `<div class="log-card hulling-border"><div><b>${x.name}</b><br><small>${formatWeight(qntoKg(x.weight), true)}</small></div><div class="log-amt">₹${x.total} <button class="btn-sm btn-edit" onclick="editEntry('hulling',${x.id})">✎</button></div></div>`; });
+        s.forEach(x => { html += `<div class="log-card stock-border"><div><b>${x.action}: ${x.type}</b><br><small>${formatWeight(qntoKg(x.weight))}</small></div><div class="log-amt">₹${x.amount} <button class="btn-sm btn-edit" onclick="editEntry('stock',${x.id})">✎</button></div></div>`; });
         e.forEach(x => { html += `<div class="log-card expense-border"><div><b>${x.type}</b><br><small>${x.name}</small></div><div class="log-amt">₹${x.amount} <button class="btn-sm btn-edit" onclick="editEntry('expenses',${x.id})">✎</button></div></div>`; });
         document.getElementById('day_log').innerHTML = html || "<p style='text-align:center;'>No Activity Found.</p>";
     }
@@ -382,7 +390,6 @@
     }
 
     function setSummaryView(view) { currentSummaryView = view; generateSummary(); }
-    
     async function updateStockDropdown() {
         const act = document.getElementById('st_action').value;
         const items = await db.settings.toArray();
@@ -395,20 +402,6 @@
         }
         document.getElementById('st_type').innerHTML = html;
     }
-
-    async function refreshDashboard() {
-        const d = document.getElementById('main_date_picker').value;
-        const h = await db.hulling.where('date').equals(d).toArray();
-        const s = await db.stock.where('date').equals(d).toArray();
-        const e = await db.expenses.where('date').equals(d).toArray();
-        const tKg = h.reduce((acc, curr) => acc + qntoKg(curr.weight), 0);
-        const inc = h.reduce((a,b)=>a+parseFloat(b.total),0) + s.filter(x=>x.action==='Sale').reduce((a,b)=>a+b.amount,0);
-        const exp = s.filter(x=>x.action==='Purchase').reduce((a,b)=>a+b.amount,0) + e.reduce((a,b)=>a+b.amount,0);
-        document.getElementById('dash_stats_container').innerHTML = `<div class="stat-box stat-hulling"><span class="stat-label">Daily Hulling</span><span class="stat-val">${kgToDecimalQnt(tKg)}</span></div><div class="stat-box stat-income"><span class="stat-label">Income</span><span class="stat-val">₹${inc}</span></div><div class="stat-box stat-expense"><span class="stat-label">Expense</span><span class="stat-val">₹${exp}</span></div>`;
-        if(myChart) myChart.destroy();
-        myChart = new Chart(document.getElementById('financeChart'), { type: 'doughnut', data: { labels: ['Income', 'Expense'], datasets: [{ data: [inc, exp], backgroundColor: ['#2e7d32', '#d32f2f'] }] }, options: { maintainAspectRatio: false } });
-    }
-
     async function deleteItem(table, id) { if(confirm("Confirm Delete?")) { await db[table].delete(id); refreshAll(); } }
     function openTab(evt, name) { document.querySelectorAll('.tab-content').forEach(c => c.style.display = "none"); document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active')); document.getElementById(name).style.display = "block"; evt.currentTarget.classList.add('active'); }
     async function exportToExcel() { const date = document.getElementById('main_date_picker').value.substring(0,7); const h = (await db.hulling.toArray()).filter(x => x.date.startsWith(date)); const s = (await db.stock.toArray()).filter(x => x.date.startsWith(date)); const e = (await db.expenses.toArray()).filter(x => x.date.startsWith(date)); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(h), "Hulling"); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s), "Stock"); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(e), "Bills"); XLSX.writeFile(wb, `Report_${date}.xlsx`); }
