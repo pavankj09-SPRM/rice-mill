@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parshwanatha Rice Mill - Full Version</title>
+    <title>Parshwanatha Rice Mill - Ultimate</title>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -29,7 +29,7 @@
             z-index: 1000; left: 50%; bottom: 30px; transform: translateX(-50%);
             font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
-        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.2s; }
         @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
         @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
 
@@ -49,8 +49,6 @@
         .btn-edit { background: var(--edit); margin-right: 5px; }
         .btn-del { background: var(--danger); }
         .btn-sec { background: var(--secondary); }
-        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-        .stat-box { padding: 15px; border-radius: 8px; text-align: center; color: white; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -66,11 +64,11 @@
     <div class="nav-item" onclick="openTab(event, 'settings-tab')">Settings</div>
 </div>
 
-<div id="toast">Record Saved Successfully!</div>
+<div id="toast">Saved Successfully!</div>
 
 <div class="container">
     <div class="card" style="background: #e8f5e9;">
-        <label style="font-size: 0.7rem; font-weight: bold;">SELECT DATE</label>
+        <label style="font-size: 0.7rem; font-weight: bold;">SELECT WORKING DATE</label>
         <input type="date" id="main_date_picker" onchange="refreshAll()">
     </div>
 
@@ -84,56 +82,52 @@
                 <input type="number" id="h_bags" value="1" placeholder="Bags">
             </div>
             <div style="margin:10px 0; text-align: center;"><strong>Total: ₹<span id="h_total_display">0.00</span></strong></div>
-            <button onclick="saveHullingEntry()">Save Hulling Entry</button>
+            <button onclick="saveHullingEntry()">Save Entry</button>
         </div>
     </div>
 
     <div id="stock-tab" class="tab-content">
         <div class="card">
-            <h3>Purchase / Sale</h3>
+            <h3>Stock Management</h3>
             <select id="st_action" onchange="updateStockDropdown()">
-                <option value="Purchase">Purchase (Expense)</option>
-                <option value="Sale">Sale (Income)</option>
+                <option value="Purchase">Purchase (Buy Paddy/Misc)</option>
+                <option value="Sale">Sale (Sell Rice/Husk/Misc)</option>
             </select>
             <select id="st_type"></select>
-            <input type="text" id="st_name" placeholder="Party Name">
+            <input type="text" id="st_name" placeholder="Party / Merchant Name">
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
                 <input type="number" id="st_weight" placeholder="Quantity" oninput="calculateStockTotal()">
                 <input type="number" id="st_rate" placeholder="Rate" oninput="calculateStockTotal()">
             </div>
-            <input type="number" id="st_amount" placeholder="Total Amount">
+            <input type="number" id="st_amount" placeholder="Total Amount (₹)">
             <button class="btn-sec" onclick="saveStockTx()">Save Stock Record</button>
         </div>
     </div>
 
     <div id="expenses-tab" class="tab-content">
         <div class="card">
-            <h3>Labour Wages</h3>
-            <button style="background: #ff9800; margin-bottom: 10px;" onclick="autoCalculateWages()">Calc Wages from Hulling</button>
-            <input type="text" id="exp_name" placeholder="Worker/Group Name">
-            <input type="number" id="exp_amount" placeholder="Amount (₹)">
-            <button style="background: var(--danger);" onclick="saveExpense('Wages')">Save Wage Payment</button>
-        </div>
-        <div class="card">
-            <h3>Electricity & Others</h3>
-            <select id="bill_type">
+            <h3>Labour & Utility Bills</h3>
+            <button style="background: #fb8c00; margin-bottom: 10px;" onclick="autoCalculateWages()">Calc Labour from Hulling</button>
+            <select id="exp_type_cat">
+                <option value="Wages">Labour Wages</option>
                 <option value="Electricity">Electricity Bill</option>
                 <option value="Maintenance">Maintenance</option>
                 <option value="Diesel">Diesel Purchase</option>
                 <option value="Salt">Salt Purchase</option>
-                <option value="Other">Other Bill</option>
+                <option value="Other">Other Expense</option>
             </select>
-            <input type="number" id="bill_amount" placeholder="Amount (₹)">
-            <button style="background: var(--danger);" onclick="saveExpense('Bill')">Save Bill Record</button>
+            <input type="text" id="exp_name" placeholder="Name or Details">
+            <input type="number" id="exp_amount" placeholder="Amount (₹)">
+            <button style="background: var(--danger);" onclick="saveExpense()">Save Payment</button>
         </div>
     </div>
 
     <div id="dashboard-tab" class="tab-content">
         <div class="card">
-            <h3>Business Dashboard</h3>
-            <div class="stat-grid">
-                <div class="stat-box" style="background:#4caf50;">Income<br><span id="dash_income">₹0</span></div>
-                <div class="stat-box" style="background:#f44336;">Expense<br><span id="dash_expense">₹0</span></div>
+            <h3>Financial Overview</h3>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+                <div style="background:#4caf50; color:white; padding:15px; border-radius:8px; text-align:center;">Daily Income<br><span id="dash_income">₹0</span></div>
+                <div style="background:#f44336; color:white; padding:15px; border-radius:8px; text-align:center;">Daily Expense<br><span id="dash_expense">₹0</span></div>
             </div>
             <div style="height:250px;"><canvas id="financeChart"></canvas></div>
         </div>
@@ -141,15 +135,15 @@
 
     <div id="settings-tab" class="tab-content">
         <div class="card">
-            <h3>Wage Configuration</h3>
+            <h3>Wage Settings</h3>
             <div style="display:flex; gap:10px;">
                 <input type="number" id="rate_per_quintal" value="23" style="margin-bottom:0;">
-                <button onclick="saveWageRate()" style="width:auto;">Update Rate</button>
+                <button onclick="saveWageRate()" style="width:auto;">Update</button>
             </div>
         </div>
         <div class="card">
             <h3>Item Management</h3>
-            <input type="text" id="new_item_val" placeholder="New Item Name">
+            <input type="text" id="new_item_val" placeholder="Item Name">
             <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px; margin-bottom:15px;">
                 <button onclick="addItem('paddy')">+ Paddy</button>
                 <button onclick="addItem('rice')" class="btn-sec">+ Rice</button>
@@ -157,10 +151,10 @@
             </div>
             <div class="settings-grid" id="settings_grid"></div>
         </div>
-        <div class="card">
-            <h3>Backup System</h3>
-            <button onclick="exportData()" style="background:#444; margin-bottom:10px;">💾 Download Backup (.json)</button>
-            <label>Restore Data</label>
+        <div class="card" style="border: 1px solid #444;">
+            <h3>Backup & Safety</h3>
+            <button onclick="exportData()" style="background:#444; margin-bottom:10px;">💾 Download Data Backup (.json)</button>
+            <label style="font-size:0.7rem;">RESTORE DATA FROM FILE:</label>
             <input type="file" id="import_file" accept=".json" onchange="importData(event)">
         </div>
     </div>
@@ -172,7 +166,7 @@
 </div>
 
 <script>
-    const db = new Dexie("MillDB_Final_V3");
+    const db = new Dexie("MillDB_V4_Final");
     db.version(1).stores({
         hulling: '++id, date, name, weight, total',
         stock: '++id, date, name, action, type, weight, amount',
@@ -191,9 +185,8 @@
 
     function showToast(msg) {
         const x = document.getElementById("toast");
-        x.innerText = msg;
-        x.className = "show";
-        setTimeout(() => { x.className = x.className.replace("show", ""); }, 2500);
+        x.innerText = msg; x.className = "show";
+        setTimeout(() => { x.className = x.className.replace("show", ""); }, 2200);
     }
 
     function refreshAll() {
@@ -202,11 +195,12 @@
         refreshDashboard();
     }
 
+    // --- Save Functions ---
     async function saveHullingEntry() {
         const d = { name: document.getElementById('h_name').value, weight: document.getElementById('h_weight').value, total: document.getElementById('h_total_display').innerText, date: document.getElementById('main_date_picker').value };
         if(!d.name || !d.weight) return;
         await db.hulling.add(d); 
-        showToast("Hulling Saved!");
+        showToast("Hulling Entry Saved!");
         document.getElementById('h_name').value = "";
         document.getElementById('h_weight').value = "";
         refreshAll();
@@ -216,24 +210,45 @@
         const d = { name: document.getElementById('st_name').value, action: document.getElementById('st_action').value, type: document.getElementById('st_type').value, weight: document.getElementById('st_weight').value, amount: document.getElementById('st_amount').value, date: document.getElementById('main_date_picker').value };
         if(!d.amount) return;
         await db.stock.add(d); 
-        showToast("Stock Entry Saved!");
+        showToast("Stock Record Saved!");
         refreshAll();
     }
 
-    async function saveExpense(cat) {
-        const name = cat === 'Wages' ? document.getElementById('exp_name').value : document.getElementById('bill_type').value;
-        const amt = cat === 'Wages' ? document.getElementById('exp_amount').value : document.getElementById('bill_amount').value;
+    async function saveExpense() {
+        const type = document.getElementById('exp_type_cat').value;
+        const name = document.getElementById('exp_name').value || type;
+        const amt = document.getElementById('exp_amount').value;
         if(!amt) return;
-        await db.expenses.add({ name, type: cat, amount: amt, date: document.getElementById('main_date_picker').value });
-        showToast("Expense Recorded!");
+        await db.expenses.add({ name, type, amount: amt, date: document.getElementById('main_date_picker').value });
+        showToast("Expense Record Saved!");
         refreshAll();
     }
 
+    // --- Core Logic for Varieties ---
+    async function updateStockDropdown() {
+        const act = document.getElementById('st_action').value;
+        const items = await db.settings.filter(i => i.fullName).toArray();
+        let html = "";
+        if (act === 'Purchase') {
+            items.filter(i => i.category === 'paddy').forEach(p => {
+                const n = p.fullName;
+                html += `<option value="${n}-Red-O">${n}-Red-O</option><option value="${n}-Red-N">${n}-Red-N</option>`;
+                html += `<option value="${n}-White-O">${n}-White-O</option><option value="${n}-White-N">${n}-White-N</option>`;
+            });
+            items.filter(i => i.category === 'misc').forEach(m => html += `<option value="${m.fullName}">${m.fullName}</option>`);
+        } else {
+            items.filter(i => i.category === 'rice' || i.category === 'misc').forEach(r => html += `<option value="${r.fullName}">${r.fullName}</option>`);
+            html += `<option value="Husk Load">Husk Load</option>`;
+        }
+        document.getElementById('st_type').innerHTML = html;
+    }
+
+    // --- Dashboard & Analytics ---
     async function refreshDashboard() {
-        const date = document.getElementById('main_date_picker').value;
-        const h = await db.hulling.where('date').equals(date).toArray();
-        const s = await db.stock.where('date').equals(date).toArray();
-        const e = await db.expenses.where('date').equals(date).toArray();
+        const d = document.getElementById('main_date_picker').value;
+        const h = await db.hulling.where('date').equals(d).toArray();
+        const s = await db.stock.where('date').equals(d).toArray();
+        const e = await db.expenses.where('date').equals(d).toArray();
 
         const income = h.reduce((a,b)=>a+parseFloat(b.total),0) + s.filter(x=>x.action==='Sale').reduce((a,b)=>a+parseFloat(b.amount),0);
         const expense = s.filter(x=>x.action==='Purchase').reduce((a,b)=>a+parseFloat(b.amount),0) + e.reduce((a,b)=>a+parseFloat(b.amount),0);
@@ -244,18 +259,19 @@
         if(myChart) myChart.destroy();
         myChart = new Chart(document.getElementById('financeChart'), { 
             type: 'bar', 
-            data: { labels: ['Income', 'Expense'], datasets: [{ label: 'Daily Stats', data: [income, expense], backgroundColor: ['#4caf50', '#f44336'] }] },
+            data: { labels: ['Income', 'Expense'], datasets: [{ label: 'Daily Total (₹)', data: [income, expense], backgroundColor: ['#4caf50', '#f44336'] }] },
             options: { maintainAspectRatio: false }
         });
     }
 
+    // --- Settings UI ---
     async function updateSettingsGrid() {
         const items = await db.settings.filter(i => i.fullName).toArray();
-        const cats = { paddy: 'Paddy Types', rice: 'Rice Types', misc: 'Misc Items' };
+        const cats = { paddy: 'Paddy Varieties', rice: 'Rice Products', misc: 'Other/Misc' };
         let html = "";
-        for (let key in cats) {
-            const list = items.filter(i => i.category === key);
-            html += `<div class="cat-box cat-${key}"><strong>${cats[key]}</strong><hr>`;
+        for (let k in cats) {
+            const list = items.filter(i => i.category === k);
+            html += `<div class="cat-box cat-${k}"><strong>${cats[k]}</strong><hr>`;
             list.forEach(i => {
                 html += `<div class="item-row"><span>${i.fullName}</span><div>
                     <button class="btn-sm btn-edit" onclick="enableEdit(${i.id},'${i.fullName}')">Edit</button>
@@ -271,26 +287,14 @@
     function calculateHulling() {
         document.getElementById('h_total_display').innerText = (document.getElementById('h_weight').value * document.getElementById('h_rate').value).toFixed(2);
     }
-
     function calculateStockTotal() {
         document.getElementById('st_amount').value = (document.getElementById('st_weight').value * document.getElementById('st_rate').value).toFixed(2);
     }
-
-    async function updateStockDropdown() {
-        const act = document.getElementById('st_action').value;
-        const items = await db.settings.filter(i => i.fullName).toArray();
-        let html = "";
-        const filtered = act === 'Purchase' ? items.filter(i => i.category !== 'rice') : items.filter(i => i.category !== 'paddy');
-        filtered.forEach(p => html += `<option value="${p.fullName}">${p.fullName}</option>`);
-        if(act === 'Sale') html += `<option value="Husk Load">Husk Load</option>`;
-        document.getElementById('st_type').innerHTML = html;
-    }
-
     async function autoCalculateWages() {
         const hulls = await db.hulling.where('date').equals(document.getElementById('main_date_picker').value).toArray();
         const quintals = hulls.reduce((s, i) => s + parseFloat(i.weight || 0), 0) / 100;
         const r = (await db.settings.where('key').equals('wage_rate').first())?.value || 23;
-        document.getElementById('exp_name').value = `Daily Wages (${quintals.toFixed(1)} Qnt)`;
+        document.getElementById('exp_name').value = `Total Labour (${quintals.toFixed(1)} Qnt)`;
         document.getElementById('exp_amount').value = (quintals * r).toFixed(2);
     }
 
@@ -299,7 +303,7 @@
         const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = `MillBackup_${new Date().toISOString().slice(0,10)}.json`;
+        a.download = `Backup_Mill_${new Date().toISOString().slice(0,10)}.json`;
         a.click();
         showToast("Backup Downloaded!");
     }
@@ -308,7 +312,7 @@
         const reader = new FileReader();
         reader.onload = async (e) => {
             const data = JSON.parse(e.target.result);
-            if(confirm("Restore data? Current data will be lost.")) {
+            if(confirm("Restore Backup? Existing records will be deleted!")) {
                 await db.settings.clear(); await db.hulling.clear(); await db.stock.clear(); await db.expenses.clear();
                 if(data.settings) await db.settings.bulkAdd(data.settings);
                 if(data.hulling) await db.hulling.bulkAdd(data.hulling);
@@ -327,39 +331,34 @@
         evt.currentTarget.classList.add('active');
     }
 
-    async function deleteItem(table, id) { if(confirm("Delete?")) { await db[table].delete(id); refreshAll(); } }
-
-    async function viewDayLog() {
-        const date = document.getElementById('main_date_picker').value;
-        const h = await db.hulling.where('date').equals(date).toArray();
-        const s = await db.stock.where('date').equals(date).toArray();
-        const e = await db.expenses.where('date').equals(date).toArray();
-        document.getElementById('day_log').innerHTML = `<h3>Log for ${date}</h3>` + 
-            h.map(x => `<div class="item-row">Hulling: ${x.name} - ₹${x.total} <button class="btn-sm btn-del" onclick="deleteItem('hulling',${x.id})">X</button></div>`).join('') +
-            s.map(x => `<div class="item-row">${x.action}: ${x.type} - ₹${x.amount} <button class="btn-sm btn-del" onclick="deleteItem('stock',${x.id})">X</button></div>`).join('') +
-            e.map(x => `<div class="item-row">${x.type}: ${x.name} - ₹${x.amount} <button class="btn-sm btn-del" onclick="deleteItem('expenses',${x.id})">X</button></div>`).join('');
-    }
-
+    async function deleteItem(table, id) { if(confirm("Permanently Delete?")) { await db[table].delete(id); refreshAll(); } }
     async function addItem(cat) {
         const val = document.getElementById('new_item_val').value.trim();
         if(!val) return;
         await db.settings.add({ fullName: val, category: cat });
         document.getElementById('new_item_val').value = '';
         updateSettingsGrid();
-        showToast("Item Added!");
+        showToast("Item Added Successfully!");
     }
-
     function enableEdit(id, old) {
         const val = prompt("Edit Item Name:", old);
         if(val) { db.settings.update(id, { fullName: val }).then(updateSettingsGrid); }
     }
-
     async function saveWageRate() {
         await db.settings.where('key').equals('wage_rate').delete();
         await db.settings.add({key: 'wage_rate', value: document.getElementById('rate_per_quintal').value});
-        showToast("Rate Updated!");
+        showToast("Wage Rate Updated!");
     }
-
+    async function viewDayLog() {
+        const date = document.getElementById('main_date_picker').value;
+        const h = await db.hulling.where('date').equals(date).toArray();
+        const s = await db.stock.where('date').equals(date).toArray();
+        const e = await db.expenses.where('date').equals(date).toArray();
+        document.getElementById('day_log').innerHTML = `<h3>Activity for ${date}</h3>` + 
+            h.map(x => `<div class="item-row">Hulling: ${x.name} - ₹${x.total} <button class="btn-sm btn-del" onclick="deleteItem('hulling',${x.id})">X</button></div>`).join('') +
+            s.map(x => `<div class="item-row">${x.action}: ${x.type} - ₹${x.amount} <button class="btn-sm btn-del" onclick="deleteItem('stock',${x.id})">X</button></div>`).join('') +
+            e.map(x => `<div class="item-row">${x.type}: ${x.name} - ₹${x.amount} <button class="btn-sm btn-del" onclick="deleteItem('expenses',${x.id})">X</button></div>`).join('');
+    }
     async function exportToExcel() {
         const date = document.getElementById('main_date_picker').value.substring(0,7);
         const h = (await db.hulling.toArray()).filter(x => x.date.startsWith(date));
@@ -370,9 +369,7 @@
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s), "Stock");
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(e), "Expenses");
         XLSX.writeFile(wb, `MillReport_${date}.xlsx`);
-        
     }
-    </script>
+</script>
 </body>
 </html>
-    
