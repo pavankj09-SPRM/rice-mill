@@ -60,17 +60,24 @@
     <div id="stock-tab" class="tab-content">
         <div class="card">
             <h3>Record Transaction</h3>
+            <label>Customer / Party Name</label>
+            <input type="text" id="st_name" placeholder="Enter Name">
+            
             <label>Action</label>
             <select id="st_action" onchange="updateStockDropdown()">
                 <option value="Purchase">Stock In (Purchase Paddy)</option>
                 <option value="Sale">Stock Out (Sell Rice)</option>
             </select>
+            
             <label id="stock_label">Select Item</label>
             <select id="st_type"></select>
+            
             <label>Weight (kg)</label>
             <input type="number" id="st_weight">
+            
             <label>Total Amount (₹)</label>
             <input type="number" id="st_amount">
+            
             <button style="background:var(--secondary)" onclick="saveStockTx()">Save Transaction</button>
         </div>
     </div>
@@ -109,10 +116,11 @@
 </div>
 
 <script>
+    // Initialize Database with Version 2 to support 'name' in stock
     const db = new Dexie("MillDB_V9");
-    db.version(1).stores({
+    db.version(2).stores({
         hulling: '++id, date, name, weight, total',
-        stock: '++id, date, action, type, weight, amount',
+        stock: '++id, date, name, action, type, weight, amount', 
         settings: '++id, fullName, shortName, category' 
     });
 
@@ -239,25 +247,46 @@
     }
 
     async function saveStockTx() {
+        const name = document.getElementById('st_name').value;
         const action = document.getElementById('st_action').value;
         const type = document.getElementById('st_type').value;
         const weight = document.getElementById('st_weight').value;
         const amount = parseFloat(document.getElementById('st_amount').value);
         const date = document.getElementById('history_date_picker').value;
-        if(!weight || isNaN(amount)) return alert("Enter weight and amount");
-        await db.stock.add({ action, type, weight, amount, date });
+
+        if(!name || !weight || isNaN(amount)) return alert("Enter Name, Weight and Amount");
+
+        await db.stock.add({ name, action, type, weight, amount, date });
         alert("Recorded!");
+        document.getElementById('st_name').value = '';
         document.getElementById('st_weight').value = '';
         document.getElementById('st_amount').value = '';
+        viewDayDetails();
     }
 
     async function viewDayDetails() {
         const selectedDate = document.getElementById('history_date_picker').value;
         const hEntries = await db.hulling.where('date').equals(selectedDate).toArray();
         const sEntries = await db.stock.where('date').equals(selectedDate).toArray();
-        const list = hEntries.map(e => `<div class="log-item"><button class="btn-del" onclick="deleteHulling(${e.id})">Delete</button><strong>${e.name}</strong><br>Hulling: ${e.weight}kg | ₹${e.total}</div>`).join('');
-        const stockList = sEntries.map(e => `<div class="log-item" style="border-left: 4px solid var(--secondary)"><button class="btn-del" onclick="deleteStock(${e.id})">Delete</button><strong>${e.action}: ${e.type}</strong><br>${e.weight}kg | ₹${e.amount}</div>`).join('');
-        document.getElementById('day_customer_list').innerHTML = `<h3>Customer List</h3>${list || "<p>None</p>"}<h3>Stock/Sales</h3>${stockList || "<p>None</p>"}`;
+
+        const list = hEntries.map(e => `
+            <div class="log-item">
+                <button class="btn-del" onclick="deleteHulling(${e.id})">Delete</button>
+                <strong>${e.name}</strong><br>
+                Hulling: ${e.weight}kg | ₹${e.total}
+            </div>`).join('');
+
+        const stockList = sEntries.map(e => `
+            <div class="log-item" style="border-left: 4px solid var(--secondary)">
+                <button class="btn-del" onclick="deleteStock(${e.id})">Delete</button>
+                <strong>${e.name || 'Unknown'}</strong><br>
+                <small>${e.action}: ${e.type}</small><br>
+                ${e.weight}kg | ₹${e.amount}
+            </div>`).join('');
+
+        document.getElementById('day_customer_list').innerHTML = `
+            <h3>Customer Hulling</h3>${list || "<p>None</p>"}
+            <h3>Stock Purchases/Sales</h3>${stockList || "<p>None</p>"}`;
     }
 
     async function deleteHulling(id) { if(confirm("Delete?")) { await db.hulling.delete(id); viewDayDetails(); } }
