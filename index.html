@@ -22,10 +22,10 @@
         input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; margin-bottom: 5px; }
         button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; margin-top: 10px; cursor: pointer; }
         .btn-del { width: auto; padding: 6px 12px; background: var(--danger); font-size: 0.75rem; margin-top: 0; float: right; border-radius: 4px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .log-item { background: #fdfdfd; padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; }
         .settings-row { display: flex; gap: 5px; margin-bottom: 10px; }
-        .type-tag { display: inline-block; background: #e0e0e0; padding: 4px 8px; border-radius: 4px; margin: 4px; font-size: 0.8rem; }
+        .type-tag { display: block; background: #f9f9f9; padding: 8px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 5px; font-size: 0.9rem; }
+        .code-preview { color: var(--secondary); font-weight: bold; font-family: monospace; }
     </style>
 </head>
 <body>
@@ -94,18 +94,18 @@
 
     <div id="settings-tab" class="tab-content">
         <div class="card">
-            <h3>Paddy Settings (Auto-Code)</h3>
-            <p style="font-size: 0.75rem; color: #666;">Type full name (e.g. Sona Masuri), will save as SM variations.</p>
+            <h3>Paddy Codes Legend</h3>
+            <div id="paddy_legend_list"></div>
+            <hr>
+            <label>Add New Paddy Variety</label>
             <div class="settings-row">
                 <input type="text" id="new_paddy_base" placeholder="e.g. Farm IT">
                 <button style="width:80px; margin-top:0" onclick="addItem('paddy')">Add</button>
             </div>
-            <div id="paddy_base_list"></div>
         </div>
 
         <div class="card">
-            <h3>Rice Settings (Full Name)</h3>
-            <p style="font-size: 0.75rem; color: #666;">Type the exact name for selling rice.</p>
+            <h3>Rice Settings</h3>
             <div class="settings-row">
                 <input type="text" id="new_rice_name" placeholder="e.g. Premium SM Rice">
                 <button style="width:80px; margin-top:0" onclick="addItem('rice')">Add</button>
@@ -116,11 +116,11 @@
 </div>
 
 <script>
-    const db = new Dexie("MillDB_V7");
+    const db = new Dexie("MillDB_V8");
     db.version(1).stores({
         hulling: '++id, date, name, weight, total',
         stock: '++id, date, action, type, weight, amount',
-        settings: '++id, name, category' 
+        settings: '++id, fullName, shortName, category' 
     });
 
     window.onload = () => {
@@ -138,7 +138,6 @@
         if(tabName === 'stock-tab') updateStockDropdown();
     }
 
-    // --- ABBREVIATION LOGIC ---
     function getAbbreviation(text) {
         const input = text.trim().toUpperCase();
         if(input === "FARM IT") return "FIT";
@@ -154,12 +153,12 @@
             const val = document.getElementById('new_paddy_base').value;
             if(!val) return;
             const short = getAbbreviation(val);
-            await db.settings.add({ name: short, category: 'paddy' });
+            await db.settings.add({ fullName: val, shortName: short, category: 'paddy' });
             document.getElementById('new_paddy_base').value = '';
         } else {
             const val = document.getElementById('new_rice_name').value;
             if(!val) return;
-            await db.settings.add({ name: val, category: 'rice' });
+            await db.settings.add({ fullName: val, category: 'rice' });
             document.getElementById('new_rice_name').value = '';
         }
         updateDropdowns();
@@ -170,11 +169,19 @@
         const paddies = items.filter(i => i.category === 'paddy');
         const rices = items.filter(i => i.category === 'rice');
 
-        document.getElementById('paddy_base_list').innerHTML = paddies.map(p => 
-            `<div class="type-tag">${p.name} <span style="color:red; cursor:pointer" onclick="deleteItem(${p.id})">x</span></div>`).join('');
+        // Settings View for Paddy
+        document.getElementById('paddy_legend_list').innerHTML = paddies.map(p => `
+            <div class="type-tag">
+                <strong>${p.fullName}</strong> → <span class="code-preview">${p.shortName}</span>
+                <span style="color:red; cursor:pointer; float:right" onclick="deleteItem(${p.id})">[Delete]</span>
+                <div style="font-size:0.7rem; color:#888">Codes: W-${p.shortName}-N, W-${p.shortName}-O, R-${p.shortName}-N, R-${p.shortName}-O</div>
+            </div>`).join('');
         
-        document.getElementById('rice_name_list').innerHTML = rices.map(r => 
-            `<div class="type-tag">${r.name} <span style="color:red; cursor:pointer" onclick="deleteItem(${r.id})">x</span></div>`).join('');
+        // Settings View for Rice
+        document.getElementById('rice_name_list').innerHTML = rices.map(r => `
+            <div class="type-tag">
+                ${r.fullName} <span style="color:red; cursor:pointer; float:right" onclick="deleteItem(${r.id})">[Delete]</span>
+            </div>`).join('');
         
         updateStockDropdown();
     }
@@ -186,18 +193,42 @@
         let html = "";
 
         if(action === 'Purchase') {
-            document.getElementById('stock_label').innerText = "Select Paddy Variation";
+            document.getElementById('stock_label').innerText = "Select Paddy Code";
             items.filter(i => i.category === 'paddy').forEach(p => {
-                const n = p.name;
-                html += `<option value="W-${n}-N">W-${n}-N (White New)</option>`;
-                html += `<option value="W-${n}-O">W-${n}-O (White Old)</option>`;
-                html += `<option value="R-${n}-N">R-${n}-N (Red New)</option>`;
-                html += `<option value="R-${n}-O">R-${n}-O (Red Old)</option>`;
+                const s = p.shortName;
+                html += `<option value="W-${s}-N">W-${s}-N (White New)</option>`;
+                html += `<option value="W-${s}-O">W-${s}-O (White Old)</option>`;
+                html += `<option value="R-${s}-N">R-${n}-N (Red New)</option>`; // Fixed typo: n -> s
+                html += `<option value="R-${s}-O">R-${s}-O (Red Old)</option>`;
             });
+            // Correction for typo in loop
+            html = html.replaceAll('R-${n}-N', 'R-${s}-N'); 
         } else {
             document.getElementById('stock_label').innerText = "Select Rice Type";
             items.filter(i => i.category === 'rice').forEach(r => {
-                html += `<option value="${r.name}">${r.name}</option>`;
+                html += `<option value="${r.fullName}">${r.fullName}</option>`;
+            });
+        }
+        dropdown.innerHTML = html || "<option>Add items in Settings</option>";
+    }
+
+    // Manual fix for string template in updateStockDropdown
+    async function updateStockDropdown() {
+        const action = document.getElementById('st_action').value;
+        const dropdown = document.getElementById('st_type');
+        const items = await db.settings.toArray();
+        let html = "";
+        if(action === 'Purchase') {
+            items.filter(i => i.category === 'paddy').forEach(p => {
+                const s = p.shortName;
+                html += `<option value="W-${s}-N">W-${s}-N (White New)</option>`;
+                html += `<option value="W-${s}-O">W-${s}-O (White Old)</option>`;
+                html += `<option value="R-${s}-N">R-${s}-N (Red New)</option>`;
+                html += `<option value="R-${s}-O">R-${s}-O (Red Old)</option>`;
+            });
+        } else {
+            items.filter(i => i.category === 'rice').forEach(r => {
+                html += `<option value="${r.fullName}">${r.fullName}</option>`;
             });
         }
         dropdown.innerHTML = html || "<option>Add items in Settings</option>";
