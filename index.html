@@ -23,7 +23,7 @@
         button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; margin-top: 10px; cursor: pointer; }
         .btn-del { width: auto; padding: 6px 12px; background: var(--danger); font-size: 0.75rem; margin-top: 0; float: right; border-radius: 4px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .log-item { background: #fdfdfd; padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; position: relative; }
+        .log-item { background: #fdfdfd; padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; }
         .settings-row { display: flex; gap: 5px; margin-bottom: 10px; }
         .type-tag { display: inline-block; background: #e0e0e0; padding: 4px 8px; border-radius: 4px; margin: 4px; font-size: 0.8rem; }
     </style>
@@ -60,14 +60,12 @@
         <div class="card">
             <h3>Record Transaction</h3>
             <label>Action</label>
-            <select id="st_action" onchange="toggleStockDropdown()">
-                <option value="Purchase">Buy Paddy (Stock In)</option>
-                <option value="Sale">Sell Rice (Stock Out)</option>
+            <select id="st_action">
+                <option value="Purchase">Stock In (Purchase)</option>
+                <option value="Sale">Stock Out (Sale)</option>
             </select>
-            
-            <label id="st_type_label">Select Paddy Type</label>
+            <label>Select Item Variation</label>
             <select id="st_type" class="item-dropdown"></select>
-            
             <label>Weight (kg)</label>
             <input type="number" id="st_weight">
             <label>Total Amount (₹)</label>
@@ -82,45 +80,37 @@
             <label>Select Date</label>
             <input type="date" id="history_date_picker" onchange="viewDayDetails()">
         </div>
-        
         <div class="card">
-            <h3>Summary for <span id="display_date">Selected Day</span></h3>
+            <h3>Summary for <span id="display_date"></span></h3>
             <div class="grid">
                 <div style="text-align:center">Hulling Income<br><strong id="day_hulling">₹0</strong></div>
-                <div style="text-align:center">Sales/Stock In<br><strong id="day_stock">₹0</strong></div>
+                <div style="text-align:center">Stock Amount<br><strong id="day_stock">₹0</strong></div>
             </div>
         </div>
-
         <div id="day_customer_list"></div>
     </div>
 
     <div id="settings-tab" class="tab-content">
         <div class="card">
-            <h3>Manage Paddy Types (Raw)</h3>
+            <h3>Manage Varieties</h3>
+            <p style="font-size: 0.8rem; color: #666;">
+                Type full name, app will shorten it (e.g., Sona Masuri -> SM).
+            </p>
             <div class="settings-row">
-                <input type="text" id="new_paddy_name" placeholder="e.g. IR64 Paddy">
-                <button style="width:80px; margin-top:0" onclick="addNewItem('paddy')">Add</button>
+                <input type="text" id="new_base_name" placeholder="e.g. Sona Masuri">
+                <button style="width:80px; margin-top:0" onclick="addNewBaseItem()">Add</button>
             </div>
-            <div id="paddy_list"></div>
-        </div>
-
-        <div class="card">
-            <h3>Manage Rice Types (Finished)</h3>
-            <div class="settings-row">
-                <input type="text" id="new_rice_name" placeholder="e.g. Sona Masuri Rice">
-                <button style="width:80px; margin-top:0" onclick="addNewItem('rice')">Add</button>
-            </div>
-            <div id="rice_list"></div>
+            <div id="base_list"></div>
         </div>
     </div>
 </div>
 
 <script>
-    const db = new Dexie("MillDB_V4");
+    const db = new Dexie("MillDB_V6");
     db.version(1).stores({
         hulling: '++id, date, name, weight, total',
         stock: '++id, date, action, type, weight, amount',
-        settings: '++id, name, category' // category: paddy or rice
+        settings: '++id, baseName' 
     });
 
     window.onload = () => {
@@ -137,53 +127,62 @@
         if(tabName === 'history-tab') viewDayDetails();
     }
 
-    // --- SETTINGS LOGIC ---
-    async function addNewItem(cat) {
-        const inputId = cat === 'paddy' ? 'new_paddy_name' : 'new_rice_name';
-        const name = document.getElementById(inputId).value;
-        if(!name) return;
-        await db.settings.add({ name, category: cat });
-        document.getElementById(inputId).value = '';
+    // --- SMART ABBREVIATION LOGIC ---
+    function getAbbreviation(text) {
+        const input = text.trim().toUpperCase();
+        
+        // Manual Overrides for your specific requests
+        if(input === "FARM IT") return "FIT";
+        if(input === "SONA MASURI") return "SM";
+        if(input === "GODHAVARI") return "GDV";
+        if(input === "GOVARDHANA") return "GVDN";
+
+        // General logic for other names:
+        // If it's two words, take first letters: "Raw Paddy" -> "RP"
+        const words = input.split(" ");
+        if(words.length > 1) {
+            return words.map(w => w[0]).join("");
+        }
+        // If it's one word, just take the word
+        return input;
+    }
+
+    async function addNewBaseItem() {
+        const rawName = document.getElementById('new_base_name').value;
+        if(!rawName) return;
+        
+        const shortName = getAbbreviation(rawName);
+        
+        await db.settings.add({ baseName: shortName });
+        document.getElementById('new_base_name').value = '';
         updateDropdowns();
     }
 
     async function updateDropdowns() {
-        const allItems = await db.settings.toArray();
-        const paddies = allItems.filter(i => i.category === 'paddy');
-        const rices = allItems.filter(i => i.category === 'rice');
-
-        document.getElementById('paddy_list').innerHTML = paddies.map(t => 
-            `<div class="type-tag">${t.name} <span style="color:red; cursor:pointer" onclick="deleteItem(${t.id})">x</span></div>`).join('');
-        
-        document.getElementById('rice_list').innerHTML = rices.map(t => 
-            `<div class="type-tag">${t.name} <span style="color:red; cursor:pointer" onclick="deleteItem(${t.id})">x</span></div>`).join('');
-
-        toggleStockDropdown(); // Refresh the current view in Purchase/Sale
-    }
-
-    async function toggleStockDropdown() {
-        const action = document.getElementById('st_action').value;
-        const allItems = await db.settings.toArray();
-        const label = document.getElementById('st_type_label');
+        const bases = await db.settings.toArray();
         const dropdown = document.getElementById('st_type');
+        let optionsHtml = "";
 
-        if(action === 'Purchase') {
-            label.innerText = "Select Paddy Type";
-            const paddies = allItems.filter(i => i.category === 'paddy');
-            dropdown.innerHTML = paddies.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
-        } else {
-            label.innerText = "Select Rice Type";
-            const rices = allItems.filter(i => i.category === 'rice');
-            dropdown.innerHTML = rices.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
-        }
+        bases.forEach(b => {
+            const n = b.baseName;
+            optionsHtml += `<option value="W-${n}-N">W-${n}-N (White New)</option>`;
+            optionsHtml += `<option value="W-${n}-O">W-${n}-O (White Old)</option>`;
+            optionsHtml += `<option value="R-${n}-N">R-${n}-N (Red New)</option>`;
+            optionsHtml += `<option value="R-${n}-O">R-${n}-O (Red Old)</option>`;
+        });
+
+        dropdown.innerHTML = optionsHtml || "<option>Add varieties in Settings</option>";
+        document.getElementById('base_list').innerHTML = bases.map(b => 
+            `<div class="type-tag">${b.baseName} <span style="color:red; cursor:pointer" onclick="deleteItem(${b.id})">x</span></div>`).join('');
     }
 
     async function deleteItem(id) {
-        await db.settings.delete(id);
-        updateDropdowns();
+        if(confirm("Delete base variety?")) {
+            await db.settings.delete(id);
+            updateDropdowns();
+        }
     }
 
-    // --- HULLING ---
     function calculateHulling() {
         let w = document.getElementById('h_weight').value || 0;
         let r = document.getElementById('h_rate').value || 0;
@@ -195,63 +194,47 @@
         const weight = document.getElementById('h_weight').value;
         const total = parseFloat(document.getElementById('h_total_display').innerText);
         const date = document.getElementById('history_date_picker').value;
-
         if(!name || !weight) return alert("Enter Name and Weight");
         await db.hulling.add({ name, weight, total, date });
-
+        
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         doc.text("RICE MILL BILL", 105, 20, {align: "center"});
-        doc.text(`Customer: ${name}`, 20, 40);
-        doc.text(`Weight: ${weight} kg`, 20, 50);
-        doc.text(`Total: Rs. ${total}`, 20, 60);
+        doc.text(`Date: ${date}`, 20, 40);
+        doc.text(`Customer: ${name}`, 20, 50);
+        doc.text(`Weight: ${weight} kg`, 20, 60);
+        doc.text(`Total: Rs. ${total}`, 20, 75);
         doc.save(`${name}_Bill.pdf`);
-
+        
         alert("Saved!");
         document.getElementById('h_name').value = '';
         document.getElementById('h_weight').value = '';
         viewDayDetails();
     }
 
-    // --- STOCK TX ---
     async function saveStockTx() {
         const action = document.getElementById('st_action').value;
         const type = document.getElementById('st_type').value;
         const weight = document.getElementById('st_weight').value;
         const amount = parseFloat(document.getElementById('st_amount').value);
         const date = document.getElementById('history_date_picker').value;
-
-        if(!type || !weight) return alert("Select type and weight");
+        if(!weight || isNaN(amount)) return alert("Enter weight and amount");
         await db.stock.add({ action, type, weight, amount, date });
         alert("Transaction Recorded!");
         document.getElementById('st_weight').value = '';
         document.getElementById('st_amount').value = '';
     }
 
-    // --- HISTORY ---
     async function viewDayDetails() {
         const selectedDate = document.getElementById('history_date_picker').value;
         document.getElementById('display_date').innerText = selectedDate;
-
         const hEntries = await db.hulling.where('date').equals(selectedDate).toArray();
         const sEntries = await db.stock.where('date').equals(selectedDate).toArray();
-
         document.getElementById('day_hulling').innerText = "₹" + hEntries.reduce((a, b) => a + b.total, 0).toFixed(2);
         document.getElementById('day_stock').innerText = "₹" + sEntries.reduce((a, b) => a + b.amount, 0).toFixed(2);
-
-        const list = hEntries.map(e => `
-            <div class="log-item">
-                <button class="btn-del" onclick="deleteHulling(${e.id})">Delete</button>
-                <strong>${e.name}</strong><br>Hulling: ${e.weight}kg | ₹${e.total}
-            </div>`).join('');
-
-        const stockList = sEntries.map(e => `
-            <div class="log-item" style="border-left: 4px solid var(--secondary)">
-                <button class="btn-del" onclick="deleteStock(${e.id})">Delete</button>
-                <strong>${e.action}: ${e.type}</strong><br>${e.weight}kg | ₹${e.amount}
-            </div>`).join('');
-
-        document.getElementById('day_customer_list').innerHTML = `<h3>Customer List</h3>${list || "<p>None</p>"}<h3>Stock/Sales</h3>${stockList || "<p>None</p>"}`;
+        const list = hEntries.map(e => `<div class="log-item"><button class="btn-del" onclick="deleteHulling(${e.id})">Delete</button><strong>${e.name}</strong><br>Hulling: ${e.weight}kg | ₹${e.total}</div>`).join('');
+        const stockList = sEntries.map(e => `<div class="log-item" style="border-left: 4px solid var(--secondary)"><button class="btn-del" onclick="deleteStock(${e.id})">Delete</button><strong>${e.action}: ${e.type}</strong><br>${e.weight}kg | ₹${e.amount}</div>`).join('');
+        document.getElementById('day_customer_list').innerHTML = `<h3>Customer List</h3>${list || "<p>None</p>"}<h3>Stock Transactions</h3>${stockList || "<p>None</p>"}`;
     }
 
     async function deleteHulling(id) { if(confirm("Delete?")) { await db.hulling.delete(id); viewDayDetails(); } }
