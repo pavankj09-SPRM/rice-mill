@@ -4,64 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rice Mill Pro Manager</title>
-    
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
     <style>
         :root { --primary: #2e7d32; --secondary: #1565c0; --accent: #f57c00; --bg: #f0f2f5; }
-        
-        /* Fixed scrolling and layout issues */
-        body { 
-            font-family: 'Segoe UI', Roboto, sans-serif; 
-            margin: 0; 
-            background: var(--bg); 
-            padding-bottom: 150px; /* Extra space so keyboard doesn't hide buttons */
-            overflow-y: auto; 
-            -webkit-overflow-scrolling: touch;
-        }
-        
-        header { background: var(--primary); color: white; padding: 12px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        
+        body { font-family: sans-serif; margin: 0; background: var(--bg); padding-bottom: 100px; overflow-y: auto; }
+        header { background: var(--primary); color: white; padding: 12px; text-align: center; font-weight: bold; }
         .nav-bar { display: flex; background: white; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #ddd; }
         .nav-item { flex: 1; padding: 12px; text-align: center; cursor: pointer; font-weight: 600; color: #666; font-size: 0.9rem; }
         .nav-item.active { border-bottom: 3px solid var(--primary); color: var(--primary); }
-
         .container { padding: 10px; max-width: 600px; margin: auto; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; }
-        
-        h3 { margin-top: 0; color: var(--primary); border-bottom: 1px solid #eee; padding-bottom: 8px; font-size: 1.1rem; }
+        h3 { margin: 0 0 10px 0; color: var(--primary); border-bottom: 1px solid #eee; padding-bottom: 8px; font-size: 1.1rem; }
         label { display: block; margin: 8px 0 4px; font-size: 0.85rem; color: #555; font-weight: bold; }
-        
-        /* Smaller padding to fit more on screen */
-        input, select { 
-            width: 100%; 
-            padding: 8px; 
-            border: 1px solid #ccc; 
-            border-radius: 6px; 
-            box-sizing: border-box; 
-            background: #fafafa; 
-            font-size: 1rem;
-        }
-        
-        button { 
-            width: 100%; 
-            padding: 12px; 
-            background: var(--primary); 
-            color: white; 
-            border: none; 
-            border-radius: 8px; 
-            font-size: 1rem; 
-            font-weight: bold; 
-            margin-top: 15px; 
-            cursor: pointer;
-        }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; background: #fafafa; font-size: 1rem; margin-bottom: 5px; }
+        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; margin-top: 15px; cursor: pointer; }
         .btn-blue { background: var(--secondary); }
         .btn-orange { background: var(--accent); }
-
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 5px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .box { background: #f9f9f9; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #eee; }
         .amount { display: block; font-size: 1.1rem; font-weight: bold; margin-top: 3px; }
         .profit { color: #2e7d32; }
@@ -69,4 +31,157 @@
 </head>
 <body>
 
-    
+<header>RICE MILL DIGITAL LOG</header>
+
+<div class="nav-bar">
+    <div class="nav-item active" onclick="openTab(event, 'hulling-tab')">Hulling</div>
+    <div class="nav-item" onclick="openTab(event, 'milling-tab')">Production</div>
+    <div class="nav-item" onclick="openTab(event, 'report-tab')">Reports</div>
+</div>
+
+<div class="container">
+    <div id="hulling-tab" class="tab-content active">
+        <div class="card">
+            <h3>Customer Hulling</h3>
+            <label>Customer Name</label>
+            <input type="text" id="h_name" placeholder="Name">
+            <label>Paddy Weight (kg)</label>
+            <input type="number" id="h_weight" placeholder="0.00" oninput="calculateHulling()">
+            <div class="grid">
+                <div>
+                    <label>Rate (₹/kg)</label>
+                    <input type="number" id="h_rate" value="2.50" oninput="calculateHulling()">
+                </div>
+                <div>
+                    <label>Worker Bags</label>
+                    <input type="number" id="h_bags" value="1">
+                </div>
+            </div>
+            <div style="margin-top:15px;"><strong>Total Bill: ₹<span id="h_total_display">0.00</span></strong></div>
+            <button onclick="saveHullingEntry()">Save & Print PDF</button>
+        </div>
+    </div>
+
+    <div id="milling-tab" class="tab-content">
+        <div class="card">
+            <h3>Mill Production</h3>
+            <label>Paddy Used (kg)</label>
+            <input type="number" id="m_paddy" oninput="calculateYield()">
+            <label>Rice Produced (kg)</label>
+            <input type="number" id="m_rice" oninput="calculateYield()">
+            <div class="grid">
+                <div><label>Husk (kg)</label><input type="number" id="m_husk"></div>
+                <div><label>Waste (kg)</label><input type="number" id="m_waste"></div>
+            </div>
+            <div style="margin-top:12px;"><strong>Yield: <span id="yield_display">0</span>%</strong></div>
+            <button class="btn-blue" onclick="saveMillingEntry()">Save Production</button>
+        </div>
+        <div class="card">
+            <h3>Husk Sale</h3>
+            <label>Weight (kg)</label>
+            <input type="number" id="s_weight">
+            <label>Price per kg</label>
+            <input type="number" id="s_price">
+            <button class="btn-orange" onclick="saveByProductSale()">Record Sale</button>
+        </div>
+    </div>
+
+    <div id="report-tab" class="tab-content">
+        <div class="card">
+            <h3>Daily Summary</h3>
+            <div class="grid">
+                <div class="box">Income<br><span class="amount" id="rep_rev">₹0</span></div>
+                <div class="box">Expense<br><span class="amount" id="rep_exp">₹0</span></div>
+            </div>
+            <div class="box" style="margin-top:10px; background:#e8f5e9;">
+                Profit<br><span class="amount profit" id="rep_profit">₹0</span>
+            </div>
+            <label>Electric Cost ₹</label>
+            <input type="number" id="exp_electric" oninput="updateReport()">
+            <button onclick="updateReport()">Refresh</button>
+        </div>
+        <button class="btn-orange" onclick="exportBackup()">Download Backup</button>
+    </div>
+</div>
+
+<script>
+    const db = new Dexie("MillDB");
+    db.version(1).stores({
+        hulling: '++id, date, name, total',
+        production: '++id, date, yield',
+        sales: '++id, date, amount',
+        expenses: '++id, date, amount'
+    });
+
+    function openTab(evt, tabName) {
+        document.querySelectorAll('.tab-content').forEach(c => c.style.display = "none");
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.classList.add('active');
+        if(tabName === 'report-tab') updateReport();
+    }
+
+    function calculateHulling() {
+        let w = document.getElementById('h_weight').value || 0;
+        let r = document.getElementById('h_rate').value || 0;
+        document.getElementById('h_total_display').innerText = (w * r).toFixed(2);
+    }
+
+    function calculateYield() {
+        let p = document.getElementById('m_paddy').value || 0;
+        let r = document.getElementById('m_rice').value || 0;
+        if(p > 0) document.getElementById('yield_display').innerText = ((r/p)*100).toFixed(1);
+    }
+
+    async function saveHullingEntry() {
+        const name = document.getElementById('h_name').value;
+        const weight = document.getElementById('h_weight').value;
+        const total = parseFloat(document.getElementById('h_total_display').innerText);
+        const bags = document.getElementById('h_bags').value;
+        if(!name || !weight) return alert("Enter details");
+        await db.hulling.add({ name, total, date: new Date().toLocaleDateString() });
+        await db.expenses.add({ amount: bags * 15, date: new Date().toLocaleDateString() });
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.text("RICE MILL RECEIPT", 10, 20);
+        doc.text(`Customer: ${name}`, 10, 30);
+        doc.text(`Weight: ${weight} kg`, 10, 40);
+        doc.text(`Total: Rs. ${total}`, 10, 50);
+        doc.save(`${name}.pdf`);
+        alert("Saved!");
+    }
+
+    async function saveMillingEntry() {
+        await db.production.add({ yield: document.getElementById('yield_display').innerText, date: new Date().toLocaleDateString() });
+        alert("Saved!");
+    }
+
+    async function saveByProductSale() {
+        const amt = document.getElementById('s_weight').value * document.getElementById('s_price').value;
+        await db.sales.add({ amount: amt, date: new Date().toLocaleDateString() });
+        alert("Sale Recorded!");
+    }
+
+    async function updateReport() {
+        const today = new Date().toLocaleDateString();
+        const h = await db.hulling.where('date').equals(today).toArray();
+        const s = await db.sales.where('date').equals(today).toArray();
+        const e = await db.expenses.where('date').equals(today).toArray();
+        const rev = h.reduce((a,b) => a + b.total, 0) + s.reduce((a,b) => a + b.amount, 0);
+        const exp = e.reduce((a,b) => a + b.amount, 0) + (parseFloat(document.getElementById('exp_electric').value) || 0);
+        document.getElementById('rep_rev').innerText = "₹" + rev;
+        document.getElementById('rep_exp').innerText = "₹" + exp;
+        document.getElementById('rep_profit').innerText = "₹" + (rev - exp);
+    }
+
+    async function exportBackup() {
+        const data = { hulling: await db.hulling.toArray(), sales: await db.sales.toArray() };
+        const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = "backup.json";
+        a.click();
+    }
+</script>
+</body>
+</html>
