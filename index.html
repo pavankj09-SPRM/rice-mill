@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parshwanatha Rice Mill - Professional</title>
+    <title>Parshwanatha Rice Mill - Full Version</title>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -23,7 +23,6 @@
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 15px; }
         h3 { margin: 0 0 12px 0; color: var(--primary); font-size: 1rem; border-bottom: 1px solid #eee; padding-bottom: 5px; }
         
-        /* Toast Notification Styling */
         #toast {
             visibility: hidden; min-width: 250px; background-color: var(--success); color: #fff;
             text-align: center; border-radius: 8px; padding: 16px; position: fixed;
@@ -37,12 +36,12 @@
         .settings-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
         @media(min-width: 600px) { .settings-grid { grid-template-columns: 1fr 1fr; } }
         
-        .cat-box { padding: 10px; border-radius: 8px; border: 1px solid #ddd; }
+        .cat-box { padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px; }
         .cat-paddy { background: var(--paddy); }
         .cat-rice { background: var(--rice); }
         .cat-misc { background: var(--misc); }
         
-        .item-row { background: white; padding: 8px; margin-bottom: 6px; border-radius: 6px; border: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
+        .item-row { background: white; padding: 8px; margin-bottom: 6px; border-radius: 6px; border: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
         
         input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 1rem; margin-bottom: 10px; }
         button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: bold; cursor: pointer; }
@@ -50,6 +49,8 @@
         .btn-edit { background: var(--edit); margin-right: 5px; }
         .btn-del { background: var(--danger); }
         .btn-sec { background: var(--secondary); }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .stat-box { padding: 15px; border-radius: 8px; text-align: center; color: white; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -83,50 +84,72 @@
                 <input type="number" id="h_bags" value="1" placeholder="Bags">
             </div>
             <div style="margin:10px 0; text-align: center;"><strong>Total: ₹<span id="h_total_display">0.00</span></strong></div>
-            <button onclick="saveHullingEntry()">Save Entry</button>
+            <button onclick="saveHullingEntry()">Save Hulling Entry</button>
         </div>
     </div>
 
     <div id="stock-tab" class="tab-content">
         <div class="card">
-            <h3>Buy / Sell Items</h3>
+            <h3>Purchase / Sale</h3>
             <select id="st_action" onchange="updateStockDropdown()">
-                <option value="Purchase">Purchase (Cost)</option>
+                <option value="Purchase">Purchase (Expense)</option>
                 <option value="Sale">Sale (Income)</option>
             </select>
             <select id="st_type"></select>
             <input type="text" id="st_name" placeholder="Party Name">
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-                <input type="number" id="st_weight" placeholder="Qty" oninput="calculateStockTotal()">
+                <input type="number" id="st_weight" placeholder="Quantity" oninput="calculateStockTotal()">
                 <input type="number" id="st_rate" placeholder="Rate" oninput="calculateStockTotal()">
             </div>
-            <input type="number" id="st_amount" placeholder="Total Amount (Auto)">
-            <button class="btn-sec" onclick="saveStockTx()">Save Record</button>
+            <input type="number" id="st_amount" placeholder="Total Amount">
+            <button class="btn-sec" onclick="saveStockTx()">Save Stock Record</button>
         </div>
     </div>
 
     <div id="expenses-tab" class="tab-content">
         <div class="card">
-            <h3>Worker Wages</h3>
-            <button style="background: #ff9800; margin-bottom: 10px;" onclick="autoCalculateWages()">Fetch from Today's Hulling</button>
+            <h3>Labour Wages</h3>
+            <button style="background: #ff9800; margin-bottom: 10px;" onclick="autoCalculateWages()">Calc Wages from Hulling</button>
             <input type="text" id="exp_name" placeholder="Worker/Group Name">
-            <input type="number" id="exp_amount" placeholder="Wage Amount (₹)">
-            <button style="background: var(--danger);" onclick="saveExpense('Wages')">Pay Wages</button>
+            <input type="number" id="exp_amount" placeholder="Amount (₹)">
+            <button style="background: var(--danger);" onclick="saveExpense('Wages')">Save Wage Payment</button>
+        </div>
+        <div class="card">
+            <h3>Electricity & Others</h3>
+            <select id="bill_type">
+                <option value="Electricity">Electricity Bill</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Diesel">Diesel Purchase</option>
+                <option value="Salt">Salt Purchase</option>
+                <option value="Other">Other Bill</option>
+            </select>
+            <input type="number" id="bill_amount" placeholder="Amount (₹)">
+            <button style="background: var(--danger);" onclick="saveExpense('Bill')">Save Bill Record</button>
+        </div>
+    </div>
+
+    <div id="dashboard-tab" class="tab-content">
+        <div class="card">
+            <h3>Business Dashboard</h3>
+            <div class="stat-grid">
+                <div class="stat-box" style="background:#4caf50;">Income<br><span id="dash_income">₹0</span></div>
+                <div class="stat-box" style="background:#f44336;">Expense<br><span id="dash_expense">₹0</span></div>
+            </div>
+            <div style="height:250px;"><canvas id="financeChart"></canvas></div>
         </div>
     </div>
 
     <div id="settings-tab" class="tab-content">
         <div class="card">
-            <h3>Wage Rate</h3>
+            <h3>Wage Configuration</h3>
             <div style="display:flex; gap:10px;">
                 <input type="number" id="rate_per_quintal" value="23" style="margin-bottom:0;">
-                <button onclick="saveWageRate()" style="width:auto;">Update</button>
+                <button onclick="saveWageRate()" style="width:auto;">Update Rate</button>
             </div>
         </div>
-
         <div class="card">
             <h3>Item Management</h3>
-            <input type="text" id="new_item_val" placeholder="Item Name">
+            <input type="text" id="new_item_val" placeholder="New Item Name">
             <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px; margin-bottom:15px;">
                 <button onclick="addItem('paddy')">+ Paddy</button>
                 <button onclick="addItem('rice')" class="btn-sec">+ Rice</button>
@@ -134,30 +157,22 @@
             </div>
             <div class="settings-grid" id="settings_grid"></div>
         </div>
-
-        <div class="card" style="border: 2px solid var(--primary);">
-            <h3>Data Backup & Recovery</h3>
-            <p style="font-size: 0.75rem; color: #666;">Note: Browser will ask for location if "Ask where to save" is enabled in settings.</p>
+        <div class="card">
+            <h3>Backup System</h3>
             <button onclick="exportData()" style="background:#444; margin-bottom:10px;">💾 Download Backup (.json)</button>
-            <label>Restore from Previous Backup</label>
+            <label>Restore Data</label>
             <input type="file" id="import_file" accept=".json" onchange="importData(event)">
         </div>
     </div>
 
     <div id="history-tab" class="tab-content">
+        <button class="btn-sec" onclick="exportToExcel()" style="margin-bottom:10px;">Download Excel Report</button>
         <div id="day_log"></div>
-    </div>
-
-    <div id="dashboard-tab" class="tab-content">
-        <div class="card">
-            <h3>Financials</h3>
-            <div style="height:200px;"><canvas id="financeChart"></canvas></div>
-        </div>
     </div>
 </div>
 
 <script>
-    const db = new Dexie("MillDB_Final_V2");
+    const db = new Dexie("MillDB_Final_V3");
     db.version(1).stores({
         hulling: '++id, date, name, weight, total',
         stock: '++id, date, name, action, type, weight, amount',
@@ -176,9 +191,9 @@
 
     function showToast(msg) {
         const x = document.getElementById("toast");
-        x.innerText = msg || "Record Saved Successfully!";
+        x.innerText = msg;
         x.className = "show";
-        setTimeout(() => { x.className = x.className.replace("show", ""); }, 3000);
+        setTimeout(() => { x.className = x.className.replace("show", ""); }, 2500);
     }
 
     function refreshAll() {
@@ -187,12 +202,11 @@
         refreshDashboard();
     }
 
-    // --- Core Logic ---
     async function saveHullingEntry() {
         const d = { name: document.getElementById('h_name').value, weight: document.getElementById('h_weight').value, total: document.getElementById('h_total_display').innerText, date: document.getElementById('main_date_picker').value };
-        if(!d.name) return;
+        if(!d.name || !d.weight) return;
         await db.hulling.add(d); 
-        showToast("Hulling Entry Saved!");
+        showToast("Hulling Saved!");
         document.getElementById('h_name').value = "";
         document.getElementById('h_weight').value = "";
         refreshAll();
@@ -200,79 +214,58 @@
 
     async function saveStockTx() {
         const d = { name: document.getElementById('st_name').value, action: document.getElementById('st_action').value, type: document.getElementById('st_type').value, weight: document.getElementById('st_weight').value, amount: document.getElementById('st_amount').value, date: document.getElementById('main_date_picker').value };
-        if(!d.weight) return;
+        if(!d.amount) return;
         await db.stock.add(d); 
-        showToast("Inventory Record Saved!");
+        showToast("Stock Entry Saved!");
         refreshAll();
     }
 
-    async function saveExpense(type) {
-        const name = document.getElementById('exp_name').value;
-        const amt = document.getElementById('exp_amount').value;
+    async function saveExpense(cat) {
+        const name = cat === 'Wages' ? document.getElementById('exp_name').value : document.getElementById('bill_type').value;
+        const amt = cat === 'Wages' ? document.getElementById('exp_amount').value : document.getElementById('bill_amount').value;
         if(!amt) return;
-        await db.expenses.add({ name, type, amount: amt, date: document.getElementById('main_date_picker').value });
-        showToast("Wage Payment Saved!");
+        await db.expenses.add({ name, type: cat, amount: amt, date: document.getElementById('main_date_picker').value });
+        showToast("Expense Recorded!");
         refreshAll();
     }
 
-    // --- Settings & UI ---
+    async function refreshDashboard() {
+        const date = document.getElementById('main_date_picker').value;
+        const h = await db.hulling.where('date').equals(date).toArray();
+        const s = await db.stock.where('date').equals(date).toArray();
+        const e = await db.expenses.where('date').equals(date).toArray();
+
+        const income = h.reduce((a,b)=>a+parseFloat(b.total),0) + s.filter(x=>x.action==='Sale').reduce((a,b)=>a+parseFloat(b.amount),0);
+        const expense = s.filter(x=>x.action==='Purchase').reduce((a,b)=>a+parseFloat(b.amount),0) + e.reduce((a,b)=>a+parseFloat(b.amount),0);
+
+        document.getElementById('dash_income').innerText = `₹${income.toFixed(2)}`;
+        document.getElementById('dash_expense').innerText = `₹${expense.toFixed(2)}`;
+
+        if(myChart) myChart.destroy();
+        myChart = new Chart(document.getElementById('financeChart'), { 
+            type: 'bar', 
+            data: { labels: ['Income', 'Expense'], datasets: [{ label: 'Daily Stats', data: [income, expense], backgroundColor: ['#4caf50', '#f44336'] }] },
+            options: { maintainAspectRatio: false }
+        });
+    }
+
     async function updateSettingsGrid() {
         const items = await db.settings.filter(i => i.fullName).toArray();
-        const categories = { paddy: 'PADDY', rice: 'RICE', misc: 'MISC' };
+        const cats = { paddy: 'Paddy Types', rice: 'Rice Types', misc: 'Misc Items' };
         let html = "";
-        for (let cat in categories) {
-            const list = items.filter(i => i.category === cat);
-            html += `<div class="cat-box cat-${cat}"><strong style="font-size:0.75rem;">${categories[cat]}</strong><hr>`;
+        for (let key in cats) {
+            const list = items.filter(i => i.category === key);
+            html += `<div class="cat-box cat-${key}"><strong>${cats[key]}</strong><hr>`;
             list.forEach(i => {
                 html += `<div class="item-row"><span>${i.fullName}</span><div>
-                    <button class="btn-sm btn-edit" onclick="enableEdit(${i.id}, '${i.fullName}')">Edit</button>
-                    <button class="btn-sm btn-del" onclick="deleteItem('settings', ${i.id})">X</button>
+                    <button class="btn-sm btn-edit" onclick="enableEdit(${i.id},'${i.fullName}')">Edit</button>
+                    <button class="btn-sm btn-del" onclick="deleteItem('settings',${i.id})">X</button>
                 </div></div>`;
             });
             html += `</div>`;
         }
         document.getElementById('settings_grid').innerHTML = html;
         updateStockDropdown();
-    }
-
-    async function exportData() {
-        const data = { 
-            settings: await db.settings.toArray(), 
-            hulling: await db.hulling.toArray(), 
-            stock: await db.stock.toArray(), 
-            expenses: await db.expenses.toArray() 
-        };
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        
-        // Dynamic filename to help trigger "Save As" behavior
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-        a.href = url;
-        a.download = `Mill_Backup_${timestamp}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        showToast("Backup File Created!");
-    }
-
-    async function importData(event) {
-        const file = event.target.files[0];
-        if(!file) return;
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const data = JSON.parse(e.target.result);
-            if(confirm("This will replace all data. Proceed?")) {
-                await db.settings.clear(); await db.hulling.clear(); await db.stock.clear(); await db.expenses.clear();
-                if(data.settings) await db.settings.bulkAdd(data.settings);
-                if(data.hulling) await db.hulling.bulkAdd(data.hulling);
-                if(data.stock) await db.stock.bulkAdd(data.stock);
-                if(data.expenses) await db.expenses.bulkAdd(data.expenses);
-                showToast("Backup Restored!");
-                setTimeout(() => location.reload(), 1000);
-            }
-        };
-        reader.readAsText(file);
     }
 
     function calculateHulling() {
@@ -284,23 +277,69 @@
     }
 
     async function updateStockDropdown() {
-        const action = document.getElementById('st_action').value;
+        const act = document.getElementById('st_action').value;
         const items = await db.settings.filter(i => i.fullName).toArray();
         let html = "";
-        const filtered = action === 'Purchase' ? items.filter(i => i.category !== 'rice') : items.filter(i => i.category !== 'paddy');
+        const filtered = act === 'Purchase' ? items.filter(i => i.category !== 'rice') : items.filter(i => i.category !== 'paddy');
         filtered.forEach(p => html += `<option value="${p.fullName}">${p.fullName}</option>`);
+        if(act === 'Sale') html += `<option value="Husk Load">Husk Load</option>`;
         document.getElementById('st_type').innerHTML = html;
     }
 
-    function openTab(evt, tabName) {
+    async function autoCalculateWages() {
+        const hulls = await db.hulling.where('date').equals(document.getElementById('main_date_picker').value).toArray();
+        const quintals = hulls.reduce((s, i) => s + parseFloat(i.weight || 0), 0) / 100;
+        const r = (await db.settings.where('key').equals('wage_rate').first())?.value || 23;
+        document.getElementById('exp_name').value = `Daily Wages (${quintals.toFixed(1)} Qnt)`;
+        document.getElementById('exp_amount').value = (quintals * r).toFixed(2);
+    }
+
+    async function exportData() {
+        const data = { settings: await db.settings.toArray(), hulling: await db.hulling.toArray(), stock: await db.stock.toArray(), expenses: await db.expenses.toArray() };
+        const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `MillBackup_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        showToast("Backup Downloaded!");
+    }
+
+    async function importData(event) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const data = JSON.parse(e.target.result);
+            if(confirm("Restore data? Current data will be lost.")) {
+                await db.settings.clear(); await db.hulling.clear(); await db.stock.clear(); await db.expenses.clear();
+                if(data.settings) await db.settings.bulkAdd(data.settings);
+                if(data.hulling) await db.hulling.bulkAdd(data.hulling);
+                if(data.stock) await db.stock.bulkAdd(data.stock);
+                if(data.expenses) await db.expenses.bulkAdd(data.expenses);
+                location.reload();
+            }
+        };
+        reader.readAsText(event.target.files[0]);
+    }
+
+    function openTab(evt, name) {
         document.querySelectorAll('.tab-content').forEach(c => c.style.display = "none");
         document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-        document.getElementById(tabName).style.display = "block";
+        document.getElementById(name).style.display = "block";
         evt.currentTarget.classList.add('active');
     }
 
     async function deleteItem(table, id) { if(confirm("Delete?")) { await db[table].delete(id); refreshAll(); } }
-    
+
+    async function viewDayLog() {
+        const date = document.getElementById('main_date_picker').value;
+        const h = await db.hulling.where('date').equals(date).toArray();
+        const s = await db.stock.where('date').equals(date).toArray();
+        const e = await db.expenses.where('date').equals(date).toArray();
+        document.getElementById('day_log').innerHTML = `<h3>Log for ${date}</h3>` + 
+            h.map(x => `<div class="item-row">Hulling: ${x.name} - ₹${x.total} <button class="btn-sm btn-del" onclick="deleteItem('hulling',${x.id})">X</button></div>`).join('') +
+            s.map(x => `<div class="item-row">${x.action}: ${x.type} - ₹${x.amount} <button class="btn-sm btn-del" onclick="deleteItem('stock',${x.id})">X</button></div>`).join('') +
+            e.map(x => `<div class="item-row">${x.type}: ${x.name} - ₹${x.amount} <button class="btn-sm btn-del" onclick="deleteItem('expenses',${x.id})">X</button></div>`).join('');
+    }
+
     async function addItem(cat) {
         const val = document.getElementById('new_item_val').value.trim();
         if(!val) return;
@@ -310,20 +349,30 @@
         showToast("Item Added!");
     }
 
-    async function viewDayLog() {
-        const date = document.getElementById('main_date_picker').value;
-        const h = await db.hulling.where('date').equals(date).toArray();
-        const s = await db.stock.where('date').equals(date).toArray();
-        document.getElementById('day_log').innerHTML = h.map(x => `<div class="item-row">${x.name}: ₹${x.total}</div>`).join('') + s.map(x => `<div class="item-row">${x.type}: ₹${x.amount}</div>`).join('');
+    function enableEdit(id, old) {
+        const val = prompt("Edit Item Name:", old);
+        if(val) { db.settings.update(id, { fullName: val }).then(updateSettingsGrid); }
     }
 
-    async function refreshDashboard() {
-        const d = document.getElementById('main_date_picker').value;
-        const h = await db.hulling.where('date').equals(d).toArray();
-        const inc = h.reduce((a,b)=>a+parseFloat(b.total),0);
-        if(myChart) myChart.destroy();
-        myChart = new Chart(document.getElementById('financeChart'), { type: 'doughnut', data: { labels: ['Hulling Income'], datasets: [{ data: [inc], backgroundColor: ['#4caf50'] }] } });
+    async function saveWageRate() {
+        await db.settings.where('key').equals('wage_rate').delete();
+        await db.settings.add({key: 'wage_rate', value: document.getElementById('rate_per_quintal').value});
+        showToast("Rate Updated!");
     }
-</script>
+
+    async function exportToExcel() {
+        const date = document.getElementById('main_date_picker').value.substring(0,7);
+        const h = (await db.hulling.toArray()).filter(x => x.date.startsWith(date));
+        const s = (await db.stock.toArray()).filter(x => x.date.startsWith(date));
+        const e = (await db.expenses.toArray()).filter(x => x.date.startsWith(date));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(h), "Hulling");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s), "Stock");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(e), "Expenses");
+        XLSX.writeFile(wb, `MillReport_${date}.xlsx`);
+        
+    }
+    </script>
 </body>
 </html>
+    
