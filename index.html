@@ -70,8 +70,15 @@
                 <option value="Misc">Misc Sale (Salt/Bran/etc)</option>
             </select>
             <select id="st_type"></select>
-            <input type="number" id="st_weight" placeholder="Weight / Quantity">
-            <input type="number" id="st_amount" placeholder="Total Amount ₹">
+            
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                <input type="number" id="st_weight" placeholder="Weight / Qty" oninput="calculateStockTotal()">
+                <input type="number" id="st_rate" placeholder="Rate (Price)" oninput="calculateStockTotal()">
+            </div>
+            
+            <label>Total Amount (₹)</label>
+            <input type="number" id="st_amount" placeholder="Total Amount (Auto)">
+            
             <button class="btn-sec" onclick="saveStockTx()">Save Record</button>
         </div>
     </div>
@@ -117,7 +124,19 @@
         viewDayDetails();
     };
 
-    // --- REVERTED PROFESSIONAL PDF DESIGN ---
+    function calculateHulling() {
+        const w = document.getElementById('h_weight').value || 0;
+        const r = document.getElementById('h_rate').value || 0;
+        document.getElementById('h_total_display').innerText = (w * r).toFixed(2);
+    }
+
+    function calculateStockTotal() {
+        const qty = document.getElementById('st_weight').value || 0;
+        const rate = document.getElementById('st_rate').value || 0;
+        document.getElementById('st_amount').value = (qty * rate).toFixed(2);
+    }
+
+    // --- PROFESSIONAL PDF DESIGN WITH PHONE NUMBERS ---
     function generateHullingPDF(data) {
         try {
             const { jsPDF } = window.jspdf;
@@ -126,12 +145,16 @@
             // Header
             doc.setFontSize(18);
             doc.setTextColor(46, 125, 50); 
-            doc.text("PARSHWANATHA RICE MILL", 105, 20, {align: "center"});
+            doc.text("PARSHWANATHA RICE MILL", 105, 18, {align: "center"});
             
+            // Phone Numbers
             doc.setFontSize(10);
             doc.setTextColor(0);
-            doc.text("SULLALLI, KARNATAKA", 105, 27, {align: "center"});
-            doc.line(20, 32, 190, 32);
+            doc.text("+91 9482364402, +91 8861080602", 105, 24, {align: "center"});
+            
+            doc.setFontSize(10);
+            doc.text("SULLALLI, KARNATAKA", 105, 29, {align: "center"});
+            doc.line(20, 34, 190, 34);
 
             // Bill Info
             doc.setFontSize(12);
@@ -159,13 +182,9 @@
             doc.text("Authorized Signature", 150, 115);
             
             doc.save(`Hulling_Bill_${data.name}.pdf`);
-        } catch (e) {
-            console.error(e);
-            alert("Error generating PDF.");
-        }
+        } catch (e) { console.error(e); }
     }
 
-    // --- TRANSACTION LOGIC ---
     async function saveHullingEntry() {
         const d = { 
             name: document.getElementById('h_name').value.trim(), 
@@ -190,13 +209,15 @@
             amount: document.getElementById('st_amount').value, 
             date: document.getElementById('main_date_picker').value 
         };
-        if(!d.name) return alert("Enter Name");
+        if(!d.name || !d.weight) return alert("Enter Name and Qty");
         await db.stock.add(d);
         viewDayDetails();
         document.getElementById('st_name').value = "";
+        document.getElementById('st_weight').value = "";
+        document.getElementById('st_rate').value = "";
+        document.getElementById('st_amount').value = "";
     }
 
-    // --- DYNAMIC DROPDOWNS & SETTINGS ---
     async function updateDropdowns() {
         const items = await db.settings.toArray();
         const cats = { paddy: "Paddy Types", rice: "Rice Varieties", misc: "Misc Sale Items" };
@@ -231,7 +252,6 @@
         document.getElementById('st_type').innerHTML = html;
     }
 
-    // --- UTILITIES ---
     async function addItem(cat) {
         const val = document.getElementById('new_item_val').value.trim();
         if(!val) return;
@@ -255,13 +275,6 @@
             <h3>Stock/Misc</h3>${s.map(e => `<div class="log-item"><button class="btn-del" onclick="deleteItem('stock', ${e.id})">Del</button><strong>${e.name}</strong> (${e.action})<br>${e.type} | ₹${e.amount}</div>`).join('')}`;
     }
 
-    function calculateHulling() {
-        const w = document.getElementById('h_weight').value || 0;
-        const r = document.getElementById('h_rate').value || 0;
-        document.getElementById('h_total_display').innerText = (w * r).toFixed(2);
-    }
-
-    // --- EXPORT/IMPORT (FOLDER PICKER) ---
     async function exportData() {
         const data = { settings: await db.settings.toArray(), hulling: await db.hulling.toArray(), stock: await db.stock.toArray() };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
