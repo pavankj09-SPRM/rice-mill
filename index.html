@@ -19,7 +19,7 @@
         .container { padding: 15px; max-width: 900px; margin: auto; }
         .tab-content { display: none; animation: fadeIn 0.3s ease; }
         .tab-content.active { display: block; }
-        @keyframes fadeIn { from {opacity: 0;} to {bottom: 30px; opacity: 1;} }
+        @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
 
         .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #eef0f2; }
         h3 { margin: 0 0 15px 0; color: var(--primary); font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
@@ -43,9 +43,9 @@
 
         input, select { width: 100%; padding: 12px 15px; border: 1.5px solid #e0e0e0; border-radius: 10px; box-sizing: border-box; font-size: 1rem; margin-bottom: 12px; }
         button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.3s; }
-        .btn-sm { padding: 6px 12px; font-size: 0.75rem; border-radius: 6px; margin-left: 5px; width: auto; }
-        .btn-del { background: #fee2e2; color: #dc2626; }
-        .btn-edit { background: #fff3e0; color: #ef6c00; }
+        .btn-sm { padding: 6px 12px; font-size: 0.75rem; border-radius: 6px; margin-left: 5px; width: auto; font-weight: 600; }
+        .btn-del { background: #fee2e2; color: #dc2626; border: none; }
+        .btn-edit { background: #fff3e0; color: #ef6c00; border: none; }
         
         .log-card { background: white; border-left: 6px solid #ccc; padding: 15px; margin-bottom: 10px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; }
         .hulling-border { border-left-color: var(--edit); }
@@ -106,7 +106,7 @@
             <select id="st_type"></select>
             <input type="text" id="st_name" placeholder="Merchant/Party Name">
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                <input type="number" id="st_weight" placeholder="Qty/Weight" oninput="calculateStockTotal()">
+                <input type="number" step="0.01" id="st_weight" placeholder="Weight (Ex: 2.05)" oninput="calculateStockTotal()">
                 <input type="number" id="st_rate" placeholder="Rate" oninput="calculateStockTotal()">
             </div>
             <input type="number" id="st_amount" placeholder="Total Amount (₹)">
@@ -121,11 +121,10 @@
             <input type="hidden" id="exp_edit_id">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
                 <button style="background: var(--edit);" onclick="autoCalculateWages()">Auto Labours</button>
-                <button style="background: var(--secondary);" onclick="setExpType('Electricity')">⚡ Electricity Bill</button>
+                <button style="background: var(--secondary);" onclick="setElectricityBill()">⚡ Electricity Bill</button>
             </div>
             <select id="exp_type_cat">
                 <option value="Wages">Labour Wages</option>
-                <option value="Electricity">Electricity Bill</option>
                 <option value="Pigmy">Pigmy Collection</option>
                 <option value="Salt">Salt/Materials</option>
                 <option value="Maintenance">Maintenance</option>
@@ -150,8 +149,8 @@
         <div class="card">
             <h3>Summary Analytics</h3>
             <div class="toggle-group" style="display: flex; gap: 5px; margin-bottom: 15px;">
-                <button id="btn_month" style="flex:1; background: #ddd; color: #333;" onclick="setSummaryView('month')">Monthly</button>
-                <button id="btn_year" style="flex:1; background: #ddd; color: #333;" onclick="setSummaryView('year')">Yearly</button>
+                <button id="btn_month" style="flex:1; background: #ddd; color: #333; padding: 10px; border-radius: 8px; border: none; font-weight: 700;" onclick="setSummaryView('month')">Monthly</button>
+                <button id="btn_year" style="flex:1; background: #ddd; color: #333; padding: 10px; border-radius: 8px; border: none; font-weight: 700;" onclick="setSummaryView('year')">Yearly</button>
             </div>
             <div id="summary_display"></div>
         </div>
@@ -164,7 +163,8 @@
 
     <div id="settings-tab" class="tab-content">
         <div class="card">
-            <h3>Manage Master List</h3>
+            <h3 id="sett_form_title">Manage Master List</h3>
+            <input type="hidden" id="sett_edit_id">
             <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                 <input type="text" id="new_item_val" placeholder="Variety Name" style="margin-bottom: 0;">
                 <select id="new_item_cat" style="width: 150px; margin-bottom: 0;">
@@ -173,7 +173,8 @@
                     <option value="misc">Misc</option>
                 </select>
             </div>
-            <button onclick="addItemFromSelect()">+ Add Variety</button>
+            <button id="sett_save_btn" onclick="addItemFromSelect()">+ Add Variety</button>
+            <button id="sett_cancel_btn" onclick="resetSettForm()" style="display:none; margin-top:10px; background:#6c757d;">Cancel Edit</button>
         </div>
         <div class="settings-grid" id="settings_grid"></div>
         <div class="card" style="margin-top:20px; text-align: center;">
@@ -187,7 +188,7 @@
 </div>
 
 <script>
-    const db = new Dexie("MillDB_V_FinalPro");
+    const db = new Dexie("MillDB_V_ProFixed_V3");
     db.version(1).stores({
         hulling: '++id, date, name, weight, total',
         stock: '++id, date, name, action, type, weight, amount',
@@ -213,6 +214,7 @@
         updateSettingsGrid(); viewDayLog(); refreshDashboard(); generateSummary();
     }
 
+    // --- MATH LOGIC ---
     function qntoKg(val) {
         let num = parseFloat(val) || 0;
         let qnt = Math.floor(num);
@@ -226,6 +228,7 @@
         return `${qnt} Qnt ${kg} kg`;
     }
 
+    // --- HULLING ---
     function calculateHulling() {
         const totalKg = qntoKg(document.getElementById('h_weight').value);
         const rate = parseFloat(document.getElementById('h_rate').value) || 0;
@@ -248,19 +251,46 @@
         document.getElementById('h_cancel_btn').style.display = "none";
     }
 
-    function calculateStockTotal() { document.getElementById('st_amount').value = Math.round((document.getElementById('st_weight').value || 0) * (document.getElementById('st_rate').value || 0)); }
+    // --- STOCK / INVENTORY ---
+    function calculateStockTotal() { 
+        const totalKg = qntoKg(document.getElementById('st_weight').value);
+        const rate = parseFloat(document.getElementById('st_rate').value) || 0;
+        document.getElementById('st_amount').value = Math.round((totalKg / 100) * rate); 
+    }
+
     async function saveStockTx() {
         const id = document.getElementById('st_edit_id').value;
         const action = document.getElementById('st_action').value;
         const rawType = document.getElementById('st_type').value;
-        const entry = { name: document.getElementById('st_name').value, action, type: rawType, weight: parseFloat(document.getElementById('st_weight').value), amount: parseFloat(document.getElementById('st_amount').value), date: document.getElementById('main_date_picker').value };
+        const entry = { name: document.getElementById('st_name').value, action, type: rawType, weight: document.getElementById('st_weight').value, amount: parseFloat(document.getElementById('st_amount').value), date: document.getElementById('main_date_picker').value };
         if(id) await db.stock.update(parseInt(id), entry);
         else await db.stock.add(entry);
         resetStockForm(); showToast("Stock Saved"); refreshAll();
     }
-    function resetStockForm() { document.getElementById('st_edit_id').value = ""; document.getElementById('st_name').value = ""; document.getElementById('st_cancel_btn').style.display = "none"; }
 
-    function setExpType(type) { document.getElementById('exp_type_cat').value = type; }
+    function resetStockForm() { document.getElementById('st_edit_id').value = ""; document.getElementById('st_name').value = ""; document.getElementById('st_weight').value = ""; document.getElementById('st_amount').value = ""; document.getElementById('st_cancel_btn').style.display = "none"; }
+
+    // --- BILLS ---
+    function clearBillInputs() {
+        document.getElementById('exp_name').value = "";
+        document.getElementById('exp_amount').value = "";
+    }
+
+    function setElectricityBill() {
+        clearBillInputs();
+        document.getElementById('exp_type_cat').value = "Electricity"; // We keep it in DB, just hidden from dropdown
+        document.getElementById('exp_name').value = "Electricity Bill";
+    }
+
+    async function autoCalculateWages() { 
+        clearBillInputs();
+        const hs = await db.hulling.where('date').equals(document.getElementById('main_date_picker').value).toArray(); 
+        const tKg = hs.reduce((s, i) => s + qntoKg(i.weight), 0); 
+        document.getElementById('exp_type_cat').value = "Wages";
+        document.getElementById('exp_name').value = `Labours (${tKg} kg)`; 
+        document.getElementById('exp_amount').value = Math.round(tKg * 0.23); 
+    }
+
     async function saveExpense() {
         const id = document.getElementById('exp_edit_id').value;
         const entry = { name: document.getElementById('exp_name').value || document.getElementById('exp_type_cat').value, type: document.getElementById('exp_type_cat').value, amount: parseFloat(document.getElementById('exp_amount').value), date: document.getElementById('main_date_picker').value };
@@ -268,18 +298,24 @@
         else await db.expenses.add(entry);
         resetExpenseForm(); showToast("Payment Saved"); refreshAll();
     }
-    function resetExpenseForm() { document.getElementById('exp_edit_id').value = ""; document.getElementById('exp_name').value = ""; document.getElementById('exp_cancel_btn').style.display = "none"; }
 
+    function resetExpenseForm() { document.getElementById('exp_edit_id').value = ""; document.getElementById('exp_name').value = ""; document.getElementById('exp_amount').value = ""; document.getElementById('exp_cancel_btn').style.display = "none"; }
+
+    // --- SUMMARY ---
     async function generateSummary() {
         const dStr = document.getElementById('main_date_picker').value;
         const filter = currentSummaryView === 'month' ? dStr.substring(0, 7) : dStr.substring(0, 4);
         const allStock = await db.stock.toArray();
         const filtered = allStock.filter(x => x.date.startsWith(filter));
         const summary = {};
-        filtered.forEach(i => { if(!summary[i.type]) summary[i.type] = { weight: 0, cash: 0 }; summary[i.type].weight += (i.weight || 0); summary[i.type].cash += (i.amount || 0); });
+        filtered.forEach(i => { 
+            if(!summary[i.type]) summary[i.type] = { weightKg: 0, cash: 0 }; 
+            summary[i.type].weightKg += qntoKg(i.weight); 
+            summary[i.type].cash += (i.amount || 0); 
+        });
         
-        let html = `<table class="summary-table"><thead><tr><th>Variety / Item</th><th class="text-right">Total Qty</th><th class="text-right">Value (₹)</th></tr></thead><tbody>`;
-        for(let key in summary) { html += `<tr><td>${key}</td><td class="text-right">${summary[key].weight.toFixed(0)}</td><td class="text-right">₹${summary[key].cash.toLocaleString()}</td></tr>`; }
+        let html = `<table class="summary-table"><thead><tr><th>Variety / Item</th><th class="text-right">Total Weight</th><th class="text-right">Value (₹)</th></tr></thead><tbody>`;
+        for(let key in summary) { html += `<tr><td>${key}</td><td class="text-right">${kgToDisplay(summary[key].weightKg)}</td><td class="text-right">₹${summary[key].cash.toLocaleString()}</td></tr>`; }
         html += `</tbody></table>`;
         document.getElementById('summary_display').innerHTML = html;
         document.getElementById('btn_month').style.background = currentSummaryView === 'month' ? 'var(--primary)' : '#ddd';
@@ -288,6 +324,7 @@
         document.getElementById('btn_year').style.color = currentSummaryView === 'year' ? 'white' : '#333';
     }
 
+    // --- SETTINGS VARIETY EDIT ---
     async function updateSettingsGrid() {
         const items = await db.settings.toArray();
         const cats = { paddy: 'Paddy Varieties', rice: 'Rice Varieties', misc: 'Miscellaneous' };
@@ -295,7 +332,7 @@
         for (let k in cats) {
             html += `<div class="card"><h3>${cats[k]}</h3>`;
             items.filter(i => i.category === k).forEach(i => {
-                html += `<div class="item-row"><span class="item-name">${i.fullName}</span><button class="btn-sm btn-del" onclick="deleteItem('settings',${i.id})">Remove</button></div>`;
+                html += `<div class="item-row"><span class="item-name">${i.fullName}</span><div><button class="btn-sm btn-edit" onclick="editSetting(${i.id})">Edit</button><button class="btn-sm btn-del" onclick="deleteItem('settings',${i.id})">Remove</button></div></div>`;
             });
             html += `</div>`;
         }
@@ -303,12 +340,36 @@
         updateStockDropdown();
     }
 
-    async function addItemFromSelect() {
-        const name = document.getElementById('new_item_val').value.trim();
-        const cat = document.getElementById('new_item_cat').value;
-        if(name) { await db.settings.add({ fullName: name, category: cat }); document.getElementById('new_item_val').value = ''; refreshAll(); }
+    async function editSetting(id) {
+        const data = await db.settings.get(id);
+        document.getElementById('sett_edit_id').value = id;
+        document.getElementById('new_item_val').value = data.fullName;
+        document.getElementById('new_item_cat').value = data.category;
+        document.getElementById('sett_save_btn').innerText = "Update Variety";
+        document.getElementById('sett_cancel_btn').style.display = "block";
+        document.getElementById('sett_form_title').innerText = "Edit Variety";
+        window.scrollTo(0,0);
     }
 
+    function resetSettForm() {
+        document.getElementById('sett_edit_id').value = "";
+        document.getElementById('new_item_val').value = "";
+        document.getElementById('sett_save_btn').innerText = "+ Add Variety";
+        document.getElementById('sett_cancel_btn').style.display = "none";
+        document.getElementById('sett_form_title').innerText = "Manage Master List";
+    }
+
+    async function addItemFromSelect() {
+        const id = document.getElementById('sett_edit_id').value;
+        const name = document.getElementById('new_item_val').value.trim();
+        const cat = document.getElementById('new_item_cat').value;
+        if(!name) return;
+        if(id) await db.settings.update(parseInt(id), { fullName: name, category: cat });
+        else await db.settings.add({ fullName: name, category: cat });
+        resetSettForm(); refreshAll();
+    }
+
+    // --- OTHER CORE LOGIC ---
     async function viewDayLog() {
         const d = document.getElementById('main_date_picker').value;
         const h = await db.hulling.where('date').equals(d).toArray();
@@ -316,8 +377,8 @@
         const e = await db.expenses.where('date').equals(d).toArray();
         let html = "";
         h.forEach(x => { html += `<div class="log-card hulling-border"><div><b>${x.name}</b><br><small>${kgToDisplay(qntoKg(x.weight))}</small></div><div class="log-amt">₹${x.total} <button class="btn-sm btn-edit" onclick="editEntry('hulling',${x.id})">✎</button></div></div>`; });
-        s.forEach(x => { html += `<div class="log-card stock-border"><div><b>${x.action}: ${x.type}</b></div><div class="log-amt">₹${x.amount} <button class="btn-sm btn-edit" onclick="editEntry('stock',${x.id})">✎</button></div></div>`; });
-        e.forEach(x => { html += `<div class="log-card expense-border"><div><b>${x.type}</b></div><div class="log-amt">₹${x.amount} <button class="btn-sm btn-edit" onclick="editEntry('expenses',${x.id})">✎</button></div></div>`; });
+        s.forEach(x => { html += `<div class="log-card stock-border"><div><b>${x.action}: ${x.type}</b><br><small>${kgToDisplay(qntoKg(x.weight))}</small></div><div class="log-amt">₹${x.amount} <button class="btn-sm btn-edit" onclick="editEntry('stock',${x.id})">✎</button></div></div>`; });
+        e.forEach(x => { html += `<div class="log-card expense-border"><div><b>${x.type}</b><br><small>${x.name}</small></div><div class="log-amt">₹${x.amount} <button class="btn-sm btn-edit" onclick="editEntry('expenses',${x.id})">✎</button></div></div>`; });
         document.getElementById('day_log').innerHTML = html || "<p style='text-align:center;'>No Activity Found.</p>";
     }
 
@@ -359,7 +420,6 @@
 
     async function deleteItem(table, id) { if(confirm("Confirm Delete?")) { await db[table].delete(id); refreshAll(); } }
     function openTab(evt, name) { document.querySelectorAll('.tab-content').forEach(c => c.style.display = "none"); document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active')); document.getElementById(name).style.display = "block"; evt.currentTarget.classList.add('active'); }
-    async function autoCalculateWages() { const hs = await db.hulling.where('date').equals(document.getElementById('main_date_picker').value).toArray(); const tKg = hs.reduce((s, i) => s + qntoKg(i.weight), 0); document.getElementById('exp_name').value = `Labours (${tKg} kg)`; document.getElementById('exp_amount').value = Math.round(tKg * 0.23); }
     async function exportToExcel() { const date = document.getElementById('main_date_picker').value.substring(0,7); const h = (await db.hulling.toArray()).filter(x => x.date.startsWith(date)); const s = (await db.stock.toArray()).filter(x => x.date.startsWith(date)); const e = (await db.expenses.toArray()).filter(x => x.date.startsWith(date)); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(h), "Hulling"); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s), "Stock"); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(e), "Bills"); XLSX.writeFile(wb, `Mill_Report_${date}.xlsx`); }
     async function exportData() { const d = { settings: await db.settings.toArray(), hulling: await db.hulling.toArray(), stock: await db.stock.toArray(), expenses: await db.expenses.toArray() }; const blob = new Blob([JSON.stringify(d)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `Backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); }
     async function importData(event) { const reader = new FileReader(); reader.onload = async (e) => { const data = JSON.parse(e.target.result); await db.settings.bulkAdd(data.settings); await db.hulling.bulkAdd(data.hulling); await db.stock.bulkAdd(data.stock); await db.expenses.bulkAdd(data.expenses); location.reload(); }; reader.readAsText(event.target.files[0]); }
