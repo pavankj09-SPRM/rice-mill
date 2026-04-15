@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parshwanatha Rice Mill - Final Stable</title>
+    <title>Parshwanatha Rice Mill - Fixed Logic</title>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -32,7 +32,7 @@
         input, select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; }
         button { border: none; border-radius: 6px; cursor: pointer; font-weight: 600; padding: 10px; }
         .btn-main { background: var(--primary); color: white; width: 100%; padding: 15px; font-size: 1rem; }
-        .btn-sm { font-size: 0.7rem; border: 1px solid #ddd; background: #fff; padding: 4px 8px; }
+        .btn-sm { font-size: 0.7rem; border: 1px solid #ddd; background: #fff; padding: 4px 8px; margin-right: 2px; }
         .btn-pdf { color: var(--secondary); border-color: var(--secondary); }
         .btn-del { color: var(--danger); border-color: var(--danger); }
         
@@ -53,11 +53,11 @@
     <div class="nav-item" onclick="openTab(event, 'settings-tab')">Settings</div>
 </div>
 
-<div id="toast">Operation Successful</div>
+<div id="toast">Saved Successfully</div>
 
 <div class="container">
     <div class="card" style="display: flex; align-items: center; justify-content: space-between;">
-        <label><b>Working Date:</b></label>
+        <label><b>Date:</b></label>
         <input type="date" id="main_date_picker" onchange="refreshAll()" style="width: auto; margin: 0;">
     </div>
 
@@ -66,7 +66,7 @@
             <h3>Hulling Entry</h3>
             <input type="hidden" id="h_edit_id">
             <input type="text" id="h_name" placeholder="Customer Name">
-            <input type="number" step="0.01" id="h_weight" placeholder="Weight (Ex: 1.50)" oninput="calculateHulling()">
+            <input type="number" step="0.01" id="h_weight" placeholder="Weight (Ex: 1.14 for 1Q 14kg)" oninput="calculateHulling()">
             <div style="display:flex; gap:10px;">
                 <input type="number" id="h_rate" value="150" oninput="calculateHulling()">
                 <input type="number" id="h_bags" value="1" placeholder="Bags">
@@ -84,11 +84,12 @@
                 <option value="Purchase">Stock In (Purchase)</option>
                 <option value="Sale">Stock Out (Sale)</option>
             </select>
-            <select id="st_type"></select>
+            <select id="st_type" onchange="toggleUnitHint()"></select>
+            <p id="unit_hint" style="font-size: 0.75rem; color: #666; margin-top: -5px; margin-bottom: 10px;">* Enter weight in KG</p>
             <input type="text" id="st_name" placeholder="Party Name">
             <div style="display:flex; gap:10px;">
                 <input type="number" step="0.01" id="st_weight" placeholder="Weight" oninput="calculateStockTotal()">
-                <input type="number" step="0.01" id="st_rate" placeholder="Rate/Quintal" oninput="calculateStockTotal()">
+                <input type="number" step="0.01" id="st_rate" placeholder="Rate" oninput="calculateStockTotal()">
             </div>
             <input type="number" step="0.01" id="st_amount" placeholder="Amount (₹)">
             <button class="btn-main" style="background:var(--secondary);" onclick="saveStockTx()">Save Stock</button>
@@ -115,8 +116,8 @@
 
     <div id="history-tab" class="tab-content">
         <div class="card" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-            <button onclick="exportToExcel()" style="background:#2e7d32; color:white;">Export Excel</button>
-            <button onclick="exportFullDayPDF()" style="background:#c62828; color:white;">Daily PDF Report</button>
+            <button onclick="exportToExcel()" style="background:#2e7d32; color:white;">Excel</button>
+            <button onclick="exportFullDayPDF()" style="background:#c62828; color:white;">Day PDF</button>
         </div>
         <h3>Activity Log</h3>
         <table class="log-table">
@@ -126,7 +127,7 @@
         <div class="card" style="margin-top:20px;">
             <h3>Inventory Summary</h3>
             <table class="log-table">
-                <thead><tr><th>Variety</th><th>Net Balance</th><th>Total Value</th></tr></thead>
+                <thead><tr><th>Variety</th><th>Net Balance</th><th>Value (₹)</th></tr></thead>
                 <tbody id="summary_display_body"></tbody>
             </table>
         </div>
@@ -134,27 +135,31 @@
 
     <div id="dashboard-tab" class="tab-content">
         <div class="dash-row" id="dash_stats_container"></div>
-        <div class="card">
-            <h3 style="text-align:center;">Daily Financial Ratio</h3>
-            <canvas id="financePieChart" style="max-height: 250px;"></canvas>
-        </div>
+        <div class="card"><canvas id="financePieChart" style="max-height: 250px;"></canvas></div>
     </div>
 
     <div id="settings-tab" class="tab-content">
         <div class="card">
-            <h3>Backup & Restore</h3>
+            <h3>Backup/Restore</h3>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                <button onclick="exportJSON()" style="background:#444; color:white;">Download Backup</button>
-                <button onclick="document.getElementById('import_file').click()" style="background:#444; color:white;">Restore Data</button>
+                <button onclick="exportJSON()" style="background:#444; color:white;">Backup</button>
+                <button onclick="document.getElementById('import_file').click()" style="background:#444; color:white;">Restore</button>
             </div>
             <input type="file" id="import_file" style="display:none;" onchange="importJSON(event)">
+        </div>
+        <div class="card">
+            <input type="text" id="new_item_val" placeholder="New Variety Name">
+            <select id="new_item_cat">
+                <option value="paddy">Paddy</option><option value="rice">Rice</option><option value="misc">Misc</option>
+            </select>
+            <button class="btn-main" onclick="addItem()">Add Variety</button>
         </div>
         <div id="settings_grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;"></div>
     </div>
 </div>
 
 <script>
-    const db = new Dexie("MillMaster_Final_V3");
+    const db = new Dexie("MillMaster_Fixed_V4");
     db.version(1).stores({ hulling: '++id,date,name,weight,total', stock: '++id,date,name,action,type,weight,amount,rate', expenses: '++id,date,name,type,amount', settings: '++id,fullName,category' });
 
     let pieChart = null;
@@ -162,18 +167,29 @@
 
     function refreshAll() { updateSettingsGrid(); viewDayLog(); refreshDashboard(); generateSummary(); }
 
+    // THE FIXED MATH ENGINE
     function processInputWeight(val, type) {
         let n = parseFloat(val) || 0;
-        if(type === 'paddy' || type === 'Husk Load') {
+        // PADDY stays in Q.kg format (1.14 -> 114kg)
+        if(type.toLowerCase().includes('paddy')) {
             let q = Math.floor(n), k = Math.round((n - q) * 100);
             return (q * 100) + k;
         }
-        return val.toString().includes('.') ? (Math.floor(n)*100 + Math.round((n - Math.floor(n))*100)) : n;
+        // RICE, HUSK, MISC use straight KG (14 -> 14kg)
+        return n; 
     }
 
-    function toDisplayQ(kg) { 
-        let q = Math.floor(kg/100), k = Math.round(Math.abs(kg)%100); 
-        return `${kg < 0 ? '-' : ''}${q}.${k < 10 ? '0'+k : k} Q`; 
+    function formatDisplay(kg, type) {
+        if(type.toLowerCase().includes('paddy')) {
+            let q = Math.floor(kg/100), k = Math.round(Math.abs(kg)%100);
+            return `${kg < 0 ? '-' : ''}${q}.${k < 10 ? '0'+k : k} Q`;
+        }
+        return `${kg.toFixed(2)} KG`;
+    }
+
+    function toggleUnitHint() {
+        const type = document.getElementById('st_type').value;
+        document.getElementById('unit_hint').innerText = type.toLowerCase().includes('paddy') ? "* Enter in Q.kg (e.g., 1.14)" : "* Enter in KG (e.g., 25)";
     }
 
     function calculateHulling() {
@@ -182,35 +198,35 @@
     }
 
     function calculateStockTotal() {
-        const kg = processInputWeight(document.getElementById('st_weight').value, document.getElementById('st_type').value);
-        document.getElementById('st_amount').value = ((kg/100) * document.getElementById('st_rate').value).toFixed(2);
+        const type = document.getElementById('st_type').value;
+        const kg = processInputWeight(document.getElementById('st_weight').value, type);
+        const rate = parseFloat(document.getElementById('st_rate').value) || 0;
+        // Rate is per Quintal (100kg), so divide kg by 100
+        document.getElementById('st_amount').value = ((kg/100) * rate).toFixed(2);
     }
 
     async function saveHullingEntry() {
         const id = document.getElementById('h_edit_id').value;
         const data = { name: document.getElementById('h_name').value, weight: document.getElementById('h_weight').value, total: document.getElementById('h_total_input').value, date: document.getElementById('main_date_picker').value };
         if(id) await db.hulling.update(parseInt(id), data); else await db.hulling.add(data);
-        document.getElementById('h_edit_id').value = ""; refreshAll(); showToast("Hulling Saved");
+        document.getElementById('h_edit_id').value = ""; refreshAll(); showToast("Saved");
     }
 
     async function saveStockTx() {
         const id = document.getElementById('st_edit_id').value;
         const data = { 
-            name: document.getElementById('st_name').value, 
-            action: document.getElementById('st_action').value, 
-            type: document.getElementById('st_type').value, 
-            weight: document.getElementById('st_weight').value, 
-            amount: parseFloat(document.getElementById('st_amount').value), 
-            rate: parseFloat(document.getElementById('st_rate').value),
+            name: document.getElementById('st_name').value, action: document.getElementById('st_action').value, 
+            type: document.getElementById('st_type').value, weight: document.getElementById('st_weight').value, 
+            amount: parseFloat(document.getElementById('st_amount').value), rate: parseFloat(document.getElementById('st_rate').value),
             date: document.getElementById('main_date_picker').value 
         };
         if(id) await db.stock.update(parseInt(id), data); else await db.stock.add(data);
-        document.getElementById('st_edit_id').value = ""; refreshAll(); showToast("Stock Saved");
+        document.getElementById('st_edit_id').value = ""; refreshAll(); showToast("Saved");
     }
 
     async function saveExpense() {
         await db.expenses.add({ name: document.getElementById('exp_name').value, type: document.getElementById('exp_type_cat').value, amount: parseFloat(document.getElementById('exp_amount').value), date: document.getElementById('main_date_picker').value });
-        refreshAll(); showToast("Payment Saved");
+        refreshAll(); showToast("Saved");
     }
 
     async function viewDayLog() {
@@ -220,17 +236,17 @@
         let html = "", count = 1;
 
         h.forEach(x => {
-            html += `<tr><td>${count++}</td><td>${x.name}<br><small>Hulling</small></td><td>${toDisplayQ(processInputWeight(x.weight,'paddy'))}</td><td>₹${x.total}</td>
+            html += `<tr><td>${count++}</td><td>${x.name}<br><small>Hulling</small></td><td>${formatDisplay(processInputWeight(x.weight,'paddy'), 'paddy')}</td><td>₹${x.total}</td>
             <td>
-                <button class="btn-sm btn-pdf" onclick="generateSingleBill('Hulling', '${x.name}', '${x.weight}', '${x.total}')">PDF</button>
+                <button class="btn-sm btn-pdf" onclick="generateSingleBill('Hulling', '${x.name}', '${x.weight}', '${x.total}', 'paddy')">PDF</button>
                 <button class="btn-sm" onclick="editItem('hulling', ${x.id})">Edit</button>
                 <button class="btn-sm btn-del" onclick="deleteItem('hulling', ${x.id})">Del</button>
             </td></tr>`;
         });
         s.forEach(x => {
-            html += `<tr><td>${count++}</td><td>${x.type}<br><small>${x.action}</small></td><td>${toDisplayQ(processInputWeight(x.weight, x.type))}</td><td>₹${x.amount}</td>
+            html += `<tr><td>${count++}</td><td>${x.type}<br><small>${x.action}</small></td><td>${formatDisplay(processInputWeight(x.weight, x.type), x.type)}</td><td>₹${x.amount}</td>
             <td>
-                <button class="btn-sm btn-pdf" onclick="generateSingleBill('${x.action}', '${x.name || x.type}', '${x.weight}', '${x.amount}')">PDF</button>
+                <button class="btn-sm btn-pdf" onclick="generateSingleBill('${x.action}', '${x.name || x.type}', '${x.weight}', '${x.amount}', '${x.type}')">PDF</button>
                 <button class="btn-sm" onclick="editItem('stock', ${x.id})">Edit</button>
                 <button class="btn-sm btn-del" onclick="deleteItem('stock', ${x.id})">Del</button>
             </td></tr>`;
@@ -244,27 +260,22 @@
         allStock.forEach(i => {
             if(!res[i.type]) res[i.type] = { qty: 0, val: 0 };
             const w = Number(processInputWeight(i.weight, i.type));
-            if(i.action === 'Purchase') {
-                res[i.type].qty += w;
-                res[i.type].val += i.amount;
-            } else {
-                res[i.type].qty -= w;
-                res[i.type].val -= i.amount;
-            }
+            if(i.action === 'Purchase') { res[i.type].qty += w; res[i.type].val += i.amount; } 
+            else { res[i.type].qty -= w; res[i.type].val -= i.amount; }
         });
         let html = "";
         for(let k in res) {
-            html += `<tr><td>${k}</td><td>${toDisplayQ(res[k].qty)}</td><td>₹${res[k].val.toFixed(2)}</td></tr>`;
+            html += `<tr><td>${k}</td><td>${formatDisplay(res[k].qty, k)}</td><td>₹${res[k].val.toFixed(2)}</td></tr>`;
         }
-        document.getElementById('summary_display_body').innerHTML = html || "<tr><td colspan='3'>No inventory records.</td></tr>";
+        document.getElementById('summary_display_body').innerHTML = html || "<tr><td colspan='3'>No Stock</td></tr>";
     }
 
-    function generateSingleBill(type, party, weight, amount) {
+    function generateSingleBill(type, party, weight, amount, unitType) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ unit: 'mm', format: [80, 150] });
         doc.text("PARSHWANATHA RICE MILL", 40, 10, {align:'center'});
         doc.text(`Party: ${party}`, 5, 25);
-        doc.autoTable({ startY: 30, head: [['Item', 'Qty', 'Amt']], body: [[type, toDisplayQ(processInputWeight(weight, 'paddy')), `Rs.${amount}`]], theme: 'grid' });
+        doc.autoTable({ startY: 30, head: [['Item', 'Qty', 'Amt']], body: [[type, formatDisplay(processInputWeight(weight, unitType), unitType), `Rs.${amount}`]], theme: 'grid' });
         doc.save(`Bill_${party}.pdf`);
     }
 
@@ -278,9 +289,9 @@
         const expense = s.filter(x=>x.action==='Purchase').reduce((a,b)=>a+b.amount,0) + e.reduce((a,b)=>a+b.amount,0);
 
         document.getElementById('dash_stats_container').innerHTML = `
-            <div class="stat-box" style="background:var(--edit)">Processed Hulling<br>${toDisplayQ(hullingTotal)}</div>
-            <div class="stat-box" style="background:#2e7d32">Daily Income<br>₹${income.toFixed(2)}</div>
-            <div class="stat-box" style="background:var(--danger)">Daily Expense<br>₹${expense.toFixed(2)}</div>`;
+            <div class="stat-box" style="background:var(--edit)">Processed<br>${formatDisplay(hullingTotal, 'paddy')}</div>
+            <div class="stat-box" style="background:#2e7d32">Income<br>₹${income.toFixed(2)}</div>
+            <div class="stat-box" style="background:var(--danger)">Expense<br>₹${expense.toFixed(2)}</div>`;
         
         const ctx = document.getElementById('financePieChart').getContext('2d');
         if(pieChart) pieChart.destroy();
@@ -308,7 +319,7 @@
         const d = document.getElementById('main_date_picker').value;
         const h = await db.hulling.where('date').equals(d).toArray();
         const tKg = h.reduce((s, i) => s + processInputWeight(i.weight, 'paddy'), 0);
-        document.getElementById('exp_name').value = `Labour (${toDisplayQ(tKg)})`;
+        document.getElementById('exp_name').value = `Labour (${formatDisplay(tKg, 'paddy')})`;
         document.getElementById('exp_amount').value = (tKg * 0.23).toFixed(2);
     }
 
@@ -327,18 +338,19 @@
 
     async function addItem() { await db.settings.add({ fullName: document.getElementById('new_item_val').value, category: document.getElementById('new_item_cat').value }); document.getElementById('new_item_val').value = ""; refreshAll(); }
     function openTab(evt, name) { document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active')); document.getElementById(name).classList.add('active'); if(evt) evt.currentTarget.classList.add('active'); }
-    async function deleteItem(t, id) { if(confirm("Confirm Delete?")) { await db[t].delete(id); refreshAll(); } }
+    async function deleteItem(t, id) { if(confirm("Delete Record?")) { await db[t].delete(id); refreshAll(); } }
     function showToast(m) { const x = document.getElementById("toast"); x.innerText = m; x.className = "show"; setTimeout(() => x.className = "", 2000); }
     async function updateStockDropdown() {
         const act = document.getElementById('st_action').value; const items = await db.settings.toArray(); let html = "";
         if (act === 'Purchase') items.filter(i => i.category === 'paddy').forEach(p => html += `<option value="${p.fullName}">${p.fullName}</option>`);
         else items.filter(i => i.category !== 'paddy').forEach(r => html += `<option value="${r.fullName}">${r.fullName}</option>`);
         document.getElementById('st_type').innerHTML = html + `<option value="Husk Load">Husk Load</option>`;
+        toggleUnitHint();
     }
     async function exportJSON() { const d = { settings: await db.settings.toArray(), hulling: await db.hulling.toArray(), stock: await db.stock.toArray(), expenses: await db.expenses.toArray() }; const blob = new Blob([JSON.stringify(d)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "MillBackup.json"; a.click(); }
     async function importJSON(event) { const reader = new FileReader(); reader.onload = async (e) => { const data = JSON.parse(e.target.result); await db.settings.bulkAdd(data.settings); await db.hulling.bulkAdd(data.hulling); await db.stock.bulkAdd(data.stock); await db.expenses.bulkAdd(data.expenses); location.reload(); }; reader.readAsText(event.target.files[0]); }
     async function exportToExcel() { const h = await db.hulling.toArray(), s = await db.stock.toArray(); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(h), "Hulling"); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s), "Stock"); XLSX.writeFile(wb, `Mill_Report.xlsx`); }
-    async function exportFullDayPDF() { const { jsPDF } = window.jspdf; const doc = new jsPDF(); doc.text("Daily Operational Report", 14, 20); doc.save(`Daily_Report.pdf`); }
+    async function exportFullDayPDF() { const { jsPDF } = window.jspdf; const doc = new jsPDF(); doc.text("Operational Report", 14, 20); doc.save(`Report.pdf`); }
 </script>
 </body>
 </html>
