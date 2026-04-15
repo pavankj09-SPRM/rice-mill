@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parshwanatha Rice Mill - Pro Management</title>
+    <title>Parshwanatha Rice Mill - Final Stable</title>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -25,14 +25,16 @@
         .dash-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .stat-box { padding: 15px; border-radius: 12px; color: white; text-align: center; font-weight: bold; }
         
-        .log-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; font-size: 0.85rem; }
+        .log-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; font-size: 0.82rem; }
         .log-table th { background: #f8f9fa; padding: 10px; text-align: left; border-bottom: 2px solid #eee; }
         .log-table td { padding: 10px; border-bottom: 1px solid #f1f1f1; }
 
         input, select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; }
-        button { border: none; border-radius: 6px; cursor: pointer; font-weight: 600; padding: 10px; transition: 0.2s; }
+        button { border: none; border-radius: 6px; cursor: pointer; font-weight: 600; padding: 10px; }
         .btn-main { background: var(--primary); color: white; width: 100%; padding: 15px; font-size: 1rem; }
-        .btn-sm { font-size: 0.75rem; border: 1px solid #ddd; background: #fff; }
+        .btn-sm { font-size: 0.7rem; border: 1px solid #ddd; background: #fff; padding: 4px 8px; }
+        .btn-pdf { color: var(--secondary); border-color: var(--secondary); }
+        .btn-del { color: var(--danger); border-color: var(--danger); }
         
         #toast { visibility: hidden; min-width: 200px; background: #333; color: #fff; text-align: center; border-radius: 30px; padding: 12px; position: fixed; z-index: 1000; left: 50%; bottom: 30px; transform: translateX(-50%); }
         #toast.show { visibility: visible; animation: fadeIn 0.3s; }
@@ -51,7 +53,7 @@
     <div class="nav-item" onclick="openTab(event, 'settings-tab')">Settings</div>
 </div>
 
-<div id="toast">Saved Successfully</div>
+<div id="toast">Operation Successful</div>
 
 <div class="container">
     <div class="card" style="display: flex; align-items: center; justify-content: space-between;">
@@ -86,7 +88,7 @@
             <input type="text" id="st_name" placeholder="Party Name">
             <div style="display:flex; gap:10px;">
                 <input type="number" step="0.01" id="st_weight" placeholder="Weight" oninput="calculateStockTotal()">
-                <input type="number" step="0.01" id="st_rate" placeholder="Rate" oninput="calculateStockTotal()">
+                <input type="number" step="0.01" id="st_rate" placeholder="Rate/Quintal" oninput="calculateStockTotal()">
             </div>
             <input type="number" step="0.01" id="st_amount" placeholder="Amount (₹)">
             <button class="btn-main" style="background:var(--secondary);" onclick="saveStockTx()">Save Stock</button>
@@ -100,16 +102,11 @@
                 <button onclick="autoCalculateWages()" style="flex:1; background:#eee;">Auto Labour</button>
                 <button onclick="setElectricity()" style="flex:1; background:#fff3e0; color:#e65100; border:1px solid #e65100;">⚡ Electricity Bill</button>
             </div>
-            
-            <div style="display: flex; gap: 5px;">
-                <select id="exp_type_cat">
-                    <option value="Wages">Wages</option>
-                    <option value="Maintenance">Maintenance</option>
-                    <option value="Other Bills">Other Bills</option>
-                </select>
-                <button class="btn-sm" onclick="addCustomCategory()" style="margin-bottom:10px; white-space: nowrap;">+ Category</button>
-            </div>
-
+            <select id="exp_type_cat">
+                <option value="Wages">Wages</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Other Bills">Other Bills</option>
+            </select>
             <input type="text" id="exp_name" placeholder="Expense Description">
             <input type="number" id="exp_amount" placeholder="Amount (₹)">
             <button class="btn-main" style="background:var(--danger);" onclick="saveExpense()">Save Payment</button>
@@ -118,8 +115,8 @@
 
     <div id="history-tab" class="tab-content">
         <div class="card" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-            <button onclick="exportToExcel()" style="background:#2e7d32; color:white;">Excel</button>
-            <button onclick="exportToPDF()" style="background:#c62828; color:white;">PDF Report</button>
+            <button onclick="exportToExcel()" style="background:#2e7d32; color:white;">Export Excel</button>
+            <button onclick="exportFullDayPDF()" style="background:#c62828; color:white;">Daily PDF Report</button>
         </div>
         <h3>Activity Log</h3>
         <table class="log-table">
@@ -127,8 +124,11 @@
             <tbody id="day_log_body"></tbody>
         </table>
         <div class="card" style="margin-top:20px;">
-            <h3>Variety Inventory</h3>
-            <div id="summary_display"></div>
+            <h3>Inventory Summary</h3>
+            <table class="log-table">
+                <thead><tr><th>Variety</th><th>Net Balance</th><th>Total Value</th></tr></thead>
+                <tbody id="summary_display_body"></tbody>
+            </table>
         </div>
     </div>
 
@@ -142,30 +142,20 @@
 
     <div id="settings-tab" class="tab-content">
         <div class="card">
-            <h3>Data Management</h3>
+            <h3>Backup & Restore</h3>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                <button onclick="exportJSON()" style="background:#444; color:white;">Backup Data</button>
+                <button onclick="exportJSON()" style="background:#444; color:white;">Download Backup</button>
                 <button onclick="document.getElementById('import_file').click()" style="background:#444; color:white;">Restore Data</button>
             </div>
             <input type="file" id="import_file" style="display:none;" onchange="importJSON(event)">
-        </div>
-        <div class="card">
-            <h3>Add New Variety</h3>
-            <div style="display:grid; grid-template-columns: 2fr 1fr; gap:10px;">
-                <input type="text" id="new_item_val" placeholder="Variety Name">
-                <select id="new_item_cat">
-                    <option value="paddy">Paddy</option><option value="rice">Rice</option><option value="misc">Misc</option>
-                </select>
-            </div>
-            <button class="btn-main" onclick="addItem()">Add to List</button>
         </div>
         <div id="settings_grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;"></div>
     </div>
 </div>
 
 <script>
-    const db = new Dexie("MillMaster_Final_V2");
-    db.version(1).stores({ hulling: '++id,date,name,weight,total', stock: '++id,date,name,action,type,weight,amount', expenses: '++id,date,name,type,amount', settings: '++id,fullName,category' });
+    const db = new Dexie("MillMaster_Final_V3");
+    db.version(1).stores({ hulling: '++id,date,name,weight,total', stock: '++id,date,name,action,type,weight,amount,rate', expenses: '++id,date,name,type,amount', settings: '++id,fullName,category' });
 
     let pieChart = null;
     window.onload = () => { document.getElementById('main_date_picker').valueAsDate = new Date(); refreshAll(); };
@@ -181,7 +171,10 @@
         return val.toString().includes('.') ? (Math.floor(n)*100 + Math.round((n - Math.floor(n))*100)) : n;
     }
 
-    function toDisplayQ(kg) { let q = Math.floor(kg/100), k = Math.round(kg%100); return `${q}.${k < 10 ? '0'+k : k} Q`; }
+    function toDisplayQ(kg) { 
+        let q = Math.floor(kg/100), k = Math.round(Math.abs(kg)%100); 
+        return `${kg < 0 ? '-' : ''}${q}.${k < 10 ? '0'+k : k} Q`; 
+    }
 
     function calculateHulling() {
         const kg = processInputWeight(document.getElementById('h_weight').value, 'paddy');
@@ -202,7 +195,15 @@
 
     async function saveStockTx() {
         const id = document.getElementById('st_edit_id').value;
-        const data = { name: document.getElementById('st_name').value, action: document.getElementById('st_action').value, type: document.getElementById('st_type').value, weight: document.getElementById('st_weight').value, amount: parseFloat(document.getElementById('st_amount').value), date: document.getElementById('main_date_picker').value };
+        const data = { 
+            name: document.getElementById('st_name').value, 
+            action: document.getElementById('st_action').value, 
+            type: document.getElementById('st_type').value, 
+            weight: document.getElementById('st_weight').value, 
+            amount: parseFloat(document.getElementById('st_amount').value), 
+            rate: parseFloat(document.getElementById('st_rate').value),
+            date: document.getElementById('main_date_picker').value 
+        };
         if(id) await db.stock.update(parseInt(id), data); else await db.stock.add(data);
         document.getElementById('st_edit_id').value = ""; refreshAll(); showToast("Stock Saved");
     }
@@ -217,13 +218,54 @@
         const h = await db.hulling.where('date').equals(d).toArray();
         const s = await db.stock.where('date').equals(d).toArray();
         let html = "", count = 1;
+
         h.forEach(x => {
-            html += `<tr><td>${count++}</td><td>${x.name}<br><small>Hulling</small></td><td>${toDisplayQ(processInputWeight(x.weight,'paddy'))}</td><td>₹${x.total}</td><td><button class="btn-sm" onclick="editItem('hulling', ${x.id})">Edit</button></td></tr>`;
+            html += `<tr><td>${count++}</td><td>${x.name}<br><small>Hulling</small></td><td>${toDisplayQ(processInputWeight(x.weight,'paddy'))}</td><td>₹${x.total}</td>
+            <td>
+                <button class="btn-sm btn-pdf" onclick="generateSingleBill('Hulling', '${x.name}', '${x.weight}', '${x.total}')">PDF</button>
+                <button class="btn-sm" onclick="editItem('hulling', ${x.id})">Edit</button>
+                <button class="btn-sm btn-del" onclick="deleteItem('hulling', ${x.id})">Del</button>
+            </td></tr>`;
         });
         s.forEach(x => {
-            html += `<tr><td>${count++}</td><td>${x.type}<br><small>${x.action}</small></td><td>${toDisplayQ(processInputWeight(x.weight, x.type))}</td><td>₹${x.amount}</td><td><button class="btn-sm" onclick="editItem('stock', ${x.id})">Edit</button></td></tr>`;
+            html += `<tr><td>${count++}</td><td>${x.type}<br><small>${x.action}</small></td><td>${toDisplayQ(processInputWeight(x.weight, x.type))}</td><td>₹${x.amount}</td>
+            <td>
+                <button class="btn-sm btn-pdf" onclick="generateSingleBill('${x.action}', '${x.name || x.type}', '${x.weight}', '${x.amount}')">PDF</button>
+                <button class="btn-sm" onclick="editItem('stock', ${x.id})">Edit</button>
+                <button class="btn-sm btn-del" onclick="deleteItem('stock', ${x.id})">Del</button>
+            </td></tr>`;
         });
         document.getElementById('day_log_body').innerHTML = html;
+    }
+
+    async function generateSummary() {
+        const allStock = await db.stock.toArray();
+        const res = {};
+        allStock.forEach(i => {
+            if(!res[i.type]) res[i.type] = { qty: 0, val: 0 };
+            const w = Number(processInputWeight(i.weight, i.type));
+            if(i.action === 'Purchase') {
+                res[i.type].qty += w;
+                res[i.type].val += i.amount;
+            } else {
+                res[i.type].qty -= w;
+                res[i.type].val -= i.amount;
+            }
+        });
+        let html = "";
+        for(let k in res) {
+            html += `<tr><td>${k}</td><td>${toDisplayQ(res[k].qty)}</td><td>₹${res[k].val.toFixed(2)}</td></tr>`;
+        }
+        document.getElementById('summary_display_body').innerHTML = html || "<tr><td colspan='3'>No inventory records.</td></tr>";
+    }
+
+    function generateSingleBill(type, party, weight, amount) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'mm', format: [80, 150] });
+        doc.text("PARSHWANATHA RICE MILL", 40, 10, {align:'center'});
+        doc.text(`Party: ${party}`, 5, 25);
+        doc.autoTable({ startY: 30, head: [['Item', 'Qty', 'Amt']], body: [[type, toDisplayQ(processInputWeight(weight, 'paddy')), `Rs.${amount}`]], theme: 'grid' });
+        doc.save(`Bill_${party}.pdf`);
     }
 
     async function refreshDashboard() {
@@ -231,58 +273,43 @@
         const h = await db.hulling.where('date').equals(d).toArray();
         const s = await db.stock.where('date').equals(d).toArray();
         const e = await db.expenses.where('date').equals(d).toArray();
-        
         const hullingTotal = h.reduce((a, b) => a + Number(processInputWeight(b.weight, 'paddy')), 0);
         const income = h.reduce((a,b)=>a+parseFloat(b.total),0) + s.filter(x=>x.action==='Sale').reduce((a,b)=>a+b.amount,0);
         const expense = s.filter(x=>x.action==='Purchase').reduce((a,b)=>a+b.amount,0) + e.reduce((a,b)=>a+b.amount,0);
 
         document.getElementById('dash_stats_container').innerHTML = `
             <div class="stat-box" style="background:var(--edit)">Processed Hulling<br>${toDisplayQ(hullingTotal)}</div>
-            <div class="stat-box" style="background:#2e7d32">Total Income<br>₹${income.toFixed(2)}</div>
-            <div class="stat-box" style="background:var(--danger)">Total Expense<br>₹${expense.toFixed(2)}</div>`;
+            <div class="stat-box" style="background:#2e7d32">Daily Income<br>₹${income.toFixed(2)}</div>
+            <div class="stat-box" style="background:var(--danger)">Daily Expense<br>₹${expense.toFixed(2)}</div>`;
         
         const ctx = document.getElementById('financePieChart').getContext('2d');
         if(pieChart) pieChart.destroy();
         pieChart = new Chart(ctx, { type: 'pie', data: { labels: ['Income', 'Expense'], datasets: [{ data: [income, expense], backgroundColor: ['#2e7d32', '#b71c1c'] }] } });
     }
 
-    async function generateSummary() {
-        const dStr = document.getElementById('main_date_picker').value;
-        const allStock = await db.stock.toArray();
-        const res = {};
-        allStock.forEach(i => {
-            if(!res[i.type]) res[i.type] = 0;
-            const w = Number(processInputWeight(i.weight, i.type));
-            if(i.action === 'Purchase') res[i.type] += w; else res[i.type] -= w;
-        });
-        let html = "<table width='100%'>";
-        for(let k in res) html += `<tr><td style="padding:5px 0; border-bottom:1px solid #eee;">${k}</td><td align="right"><b>${toDisplayQ(res[k])}</b></td></tr>`;
-        document.getElementById('summary_display').innerHTML = html + "</table>";
-    }
-
-    function addCustomCategory() {
-        const cat = prompt("Enter new bill category:");
-        if (cat) {
-            const sel = document.getElementById('exp_type_cat');
-            const opt = document.createElement('option');
-            opt.value = cat; opt.text = cat;
-            sel.add(opt);
-            sel.value = cat;
+    async function editItem(table, id) {
+        const item = await db[table].get(id);
+        window.scrollTo(0,0);
+        if(table === 'hulling') {
+            document.getElementById('h_edit_id').value = item.id; document.getElementById('h_name').value = item.name;
+            document.getElementById('h_weight').value = item.weight; document.getElementById('h_total_input').value = item.total;
+            openTab(null, 'hulling-tab');
+        } else {
+            document.getElementById('st_edit_id').value = item.id; document.getElementById('st_action').value = item.action;
+            updateStockDropdown(); document.getElementById('st_type').value = item.type;
+            document.getElementById('st_name').value = item.name; document.getElementById('st_weight').value = item.weight;
+            document.getElementById('st_rate').value = item.rate || 0; document.getElementById('st_amount').value = item.amount;
+            openTab(null, 'stock-tab');
         }
     }
 
-    function setElectricity() {
-        document.getElementById('exp_name').value = "Electricity Bill";
-        document.getElementById('exp_type_cat').value = "Other Bills";
-    }
-
+    function setElectricity() { document.getElementById('exp_name').value = "Electricity Bill"; document.getElementById('exp_type_cat').value = "Other Bills"; }
     async function autoCalculateWages() {
         const d = document.getElementById('main_date_picker').value;
         const h = await db.hulling.where('date').equals(d).toArray();
         const tKg = h.reduce((s, i) => s + processInputWeight(i.weight, 'paddy'), 0);
         document.getElementById('exp_name').value = `Labour (${toDisplayQ(tKg)})`;
         document.getElementById('exp_amount').value = (tKg * 0.23).toFixed(2);
-        document.getElementById('exp_type_cat').value = "Wages";
     }
 
     async function updateSettingsGrid() {
@@ -300,21 +327,6 @@
 
     async function addItem() { await db.settings.add({ fullName: document.getElementById('new_item_val').value, category: document.getElementById('new_item_cat').value }); document.getElementById('new_item_val').value = ""; refreshAll(); }
     function openTab(evt, name) { document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active')); document.getElementById(name).classList.add('active'); if(evt) evt.currentTarget.classList.add('active'); }
-    async function editItem(table, id) {
-        const item = await db[table].get(id);
-        window.scrollTo(0,0);
-        if(table === 'hulling') {
-            document.getElementById('h_edit_id').value = item.id; document.getElementById('h_name').value = item.name;
-            document.getElementById('h_weight').value = item.weight; document.getElementById('h_total_input').value = item.total;
-            openTab(null, 'hulling-tab');
-        } else {
-            document.getElementById('st_edit_id').value = item.id; document.getElementById('st_action').value = item.action;
-            updateStockDropdown(); document.getElementById('st_type').value = item.type;
-            document.getElementById('st_name').value = item.name; document.getElementById('st_weight').value = item.weight;
-            document.getElementById('st_amount').value = item.amount;
-            openTab(null, 'stock-tab');
-        }
-    }
     async function deleteItem(t, id) { if(confirm("Confirm Delete?")) { await db[t].delete(id); refreshAll(); } }
     function showToast(m) { const x = document.getElementById("toast"); x.innerText = m; x.className = "show"; setTimeout(() => x.className = "", 2000); }
     async function updateStockDropdown() {
@@ -323,10 +335,10 @@
         else items.filter(i => i.category !== 'paddy').forEach(r => html += `<option value="${r.fullName}">${r.fullName}</option>`);
         document.getElementById('st_type').innerHTML = html + `<option value="Husk Load">Husk Load</option>`;
     }
-    async function exportJSON() { const d = { settings: await db.settings.toArray(), hulling: await db.hulling.toArray(), stock: await db.stock.toArray(), expenses: await db.expenses.toArray() }; const blob = new Blob([JSON.stringify(d)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "RiceMill_Backup.json"; a.click(); }
+    async function exportJSON() { const d = { settings: await db.settings.toArray(), hulling: await db.hulling.toArray(), stock: await db.stock.toArray(), expenses: await db.expenses.toArray() }; const blob = new Blob([JSON.stringify(d)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "MillBackup.json"; a.click(); }
     async function importJSON(event) { const reader = new FileReader(); reader.onload = async (e) => { const data = JSON.parse(e.target.result); await db.settings.bulkAdd(data.settings); await db.hulling.bulkAdd(data.hulling); await db.stock.bulkAdd(data.stock); await db.expenses.bulkAdd(data.expenses); location.reload(); }; reader.readAsText(event.target.files[0]); }
     async function exportToExcel() { const h = await db.hulling.toArray(), s = await db.stock.toArray(); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(h), "Hulling"); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s), "Stock"); XLSX.writeFile(wb, `Mill_Report.xlsx`); }
-    async function exportToPDF() { const { jsPDF } = window.jspdf; const doc = new jsPDF(); doc.text("Daily Mill Report", 14, 20); doc.save(`Mill_Report.pdf`); }
+    async function exportFullDayPDF() { const { jsPDF } = window.jspdf; const doc = new jsPDF(); doc.text("Daily Operational Report", 14, 20); doc.save(`Daily_Report.pdf`); }
 </script>
 </body>
 </html>
