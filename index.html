@@ -3,34 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parshwanatha Rice Mill Pro</title>
+    <title>Parshwanatha Rice Mill - Pro Management</title>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --primary: #2e7d32; --secondary: #1565c0; --danger: #d32f2f; --bg: #f0f2f5; --income: #4caf50; --expense: #f44336; }
+        :root { --primary: #2e7d32; --secondary: #1565c0; --danger: #d32f2f; --bg: #f0f2f5; --income: #4caf50; --expense: #f44336; --wage: #ff9800; }
         body { font-family: sans-serif; margin: 0; background: var(--bg); padding-bottom: 100px; overflow-y: auto; }
         header { background: var(--primary); color: white; padding: 12px; text-align: center; font-weight: bold; }
+        
         .nav-bar { display: flex; background: white; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #ddd; overflow-x: auto; white-space: nowrap; }
         .nav-item { flex: 0 0 auto; padding: 15px 18px; text-align: center; cursor: pointer; font-weight: bold; color: #666; font-size: 0.85rem; }
         .nav-item.active { border-bottom: 3px solid var(--primary); color: var(--primary); }
+        
         .container { padding: 10px; max-width: 600px; margin: auto; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
         h3 { margin: 0 0 10px 0; color: var(--primary); font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 5px; }
         h4 { margin: 15px 0 8px 0; color: #333; font-size: 0.95rem; border-left: 4px solid var(--primary); padding-left: 8px; }
+        
+        label { font-size: 0.8rem; font-weight: bold; color: #555; display: block; margin-bottom: 5px; }
         input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 1rem; margin-bottom: 8px; }
         button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; margin-top: 5px; cursor: pointer; }
+        
+        .btn-wage { background: var(--wage); color: white; margin-bottom: 10px; }
         .btn-sec { background: var(--secondary); }
         .btn-del { width: auto; padding: 6px 10px; background: var(--danger); font-size: 0.75rem; float: right; border-radius: 4px; margin-top: -2px; }
-        .type-tag { background: #fff; padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 6px; font-size: 0.95rem; color: #333; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        
+        .type-tag { background: #fff; padding: 12px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         .summary-box { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .stat-card { padding: 15px; border-radius: 8px; text-align: center; color: white; }
         .stat-inc { background: var(--income); }
         .stat-exp { background: var(--expense); }
-        .log-item { background: #fdfdfd; padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+        .log-item { background: #fdfdfd; padding: 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 8px; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -40,6 +48,7 @@
 <div class="nav-bar">
     <div class="nav-item active" onclick="openTab(event, 'hulling-tab')">Hulling</div>
     <div class="nav-item" onclick="openTab(event, 'stock-tab')">Purchase/Sale</div>
+    <div class="nav-item" onclick="openTab(event, 'expenses-tab')">Bills/Wages</div>
     <div class="nav-item" onclick="openTab(event, 'settings-tab')">Settings</div>
     <div class="nav-item" onclick="openTab(event, 'history-tab')">History</div>
     <div class="nav-item" onclick="openTab(event, 'dashboard-tab')">Dashboard</div>
@@ -47,7 +56,7 @@
 
 <div class="container">
     <div class="card" style="background: #e8f5e9;">
-        <label style="font-size: 0.8rem; font-weight: bold; color: #555;">Selected Date</label>
+        <label>Selected Date</label>
         <input type="date" id="main_date_picker">
     </div>
 
@@ -67,90 +76,135 @@
 
     <div id="stock-tab" class="tab-content">
         <div class="card">
-            <h3>Record Transaction</h3>
-            <input type="text" id="st_name" placeholder="Party Name">
+            <h3>Inventory Transaction</h3>
             <select id="st_action" onchange="updateStockDropdown()">
-                <option value="Purchase">Purchase (Paddy - Expense)</option>
-                <option value="Sale">Sale (Rice - Income)</option>
-                <option value="Misc">Misc Sale (Salt/Bran - Income)</option>
+                <option value="Purchase">Purchase (Expense)</option>
+                <option value="Sale">Sale (Income)</option>
             </select>
             <select id="st_type"></select>
+            <input type="text" id="st_name" placeholder="Party Name">
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
                 <input type="number" id="st_weight" placeholder="Qty" oninput="calculateStockTotal()">
                 <input type="number" id="st_rate" placeholder="Rate" oninput="calculateStockTotal()">
             </div>
-            <input type="number" id="st_amount" placeholder="Total Amount (Auto)">
+            <input type="number" id="st_amount" placeholder="Total Amount">
             <button class="btn-sec" onclick="saveStockTx()">Save Record</button>
+        </div>
+    </div>
+
+    <div id="expenses-tab" class="tab-content">
+        <div class="card">
+            <h3>Worker Wages</h3>
+            <button class="btn-wage" onclick="autoCalculateWages()">Fetch Wages from Production</button>
+            <input type="text" id="exp_name" placeholder="Worker/Group Name">
+            <input type="number" id="exp_amount" placeholder="Amount (₹)">
+            <button style="background: var(--danger);" onclick="saveExpense('Wages')">Record Wage Payment</button>
+        </div>
+        <div class="card">
+            <h3>Other Bills</h3>
+            <select id="bill_type">
+                <option value="Electricity">Electricity Bill</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Diesel-Purchase">Diesel Purchase</option>
+            </select>
+            <input type="number" id="bill_amount" placeholder="Amount (₹)">
+            <button style="background: var(--danger);" onclick="saveExpense('Bill')">Record Bill</button>
         </div>
     </div>
 
     <div id="settings-tab" class="tab-content">
         <div class="card">
+            <h3>Production Settings</h3>
+            <label>Current Wage Rate (₹ per Quintal)</label>
+            <div style="display: flex; gap: 10px;">
+                <input type="number" id="rate_per_quintal" value="23" style="margin-bottom: 0;">
+                <button onclick="saveWageRate()" style="width: auto; margin-top: 0; padding: 0 20px;">Update</button>
+            </div>
+            <p style="font-size: 0.75rem; color: #666; margin-top: 5px;">* Currently used for auto-calculating worker payments.</p>
+        </div>
+        <div class="card">
             <h3>Manage Custom Items</h3>
-            <div style="background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
-                <input type="text" id="new_item_val" placeholder="New Item Name (e.g. Salt)">
-                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px;">
-                    <button onclick="addItem('paddy')" style="font-size: 0.8rem;">+ Paddy</button>
-                    <button onclick="addItem('rice')" style="font-size: 0.8rem;">+ Rice</button>
-                    <button onclick="addItem('misc')" class="btn-sec" style="font-size: 0.8rem;">+ Misc</button>
-                </div>
+            <input type="text" id="new_item_val" placeholder="Item Name">
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px;">
+                <button onclick="addItem('paddy')">+ Paddy</button>
+                <button onclick="addItem('rice')">+ Rice</button>
+                <button onclick="addItem('misc')" class="btn-sec">+ Misc</button>
             </div>
             <div id="settings_list"></div>
         </div>
         <div class="card">
-            <h3>Data Backup</h3>
-            <button onclick="exportData()" style="background:#444;">Download Backup (.json)</button>
-            <input type="file" id="import_file" accept=".json" onchange="importData(event)" style="margin-top:10px;">
+            <h3>System</h3>
+            <button onclick="exportData()" style="background:#444;">Download Data Backup</button>
         </div>
     </div>
 
     <div id="history-tab" class="tab-content">
-        <div class="card"><button class="btn-sec" onclick="exportToExcel()">Export Month to Excel</button></div>
         <div id="day_customer_list"></div>
     </div>
 
     <div id="dashboard-tab" class="tab-content">
         <div class="card">
-            <h3>Income vs Expense</h3>
+            <h3>Finance Dashboard</h3>
             <select id="report_range" onchange="refreshDashboard()">
-                <option value="day">Selected Day</option>
-                <option value="month">Current Month</option>
-                <option value="year">Current Year</option>
+                <option value="day">Today</option>
+                <option value="month">This Month</option>
+                <option value="year">This Year</option>
             </select>
             <div class="summary-box">
-                <div class="stat-card stat-inc">
-                    <small>Income</small><br><strong id="dash_income">₹0</strong>
-                </div>
-                <div class="stat-card stat-exp">
-                    <small>Expense</small><br><strong id="dash_expense">₹0</strong>
-                </div>
+                <div class="stat-card stat-inc"><small>Income</small><br><strong id="dash_income">₹0</strong></div>
+                <div class="stat-card stat-exp"><small>Expense</small><br><strong id="dash_expense">₹0</strong></div>
             </div>
-            <div class="card" style="padding: 5px; height: 250px;">
-                <canvas id="financeChart"></canvas>
-            </div>
-            <div id="dash_net" style="text-align: center; font-weight: bold; font-size: 1.1rem;"></div>
+            <div class="card" style="height: 250px;"><canvas id="financeChart"></canvas></div>
         </div>
     </div>
 </div>
 
 <script>
-    const db = new Dexie("MillDB_V25");
+    const db = new Dexie("MillDB_V28");
     db.version(1).stores({
         hulling: '++id, date, name, weight, total',
         stock: '++id, date, name, action, type, weight, amount',
-        settings: '++id, fullName, category' 
+        expenses: '++id, date, name, type, amount',
+        settings: '++id, key, value, fullName, category' 
     });
 
     let myChart = null;
 
-    window.onload = () => {
+    window.onload = async () => {
         document.getElementById('main_date_picker').valueAsDate = new Date();
-        document.getElementById('main_date_picker').onchange = () => { viewDayDetails(); refreshDashboard(); };
+        const storedRate = await db.settings.where('key').equals('wage_rate').first();
+        if(storedRate) document.getElementById('rate_per_quintal').value = storedRate.value;
+        
         updateDropdowns();
         viewDayDetails();
         refreshDashboard();
     };
 
+    // --- Wage Logic ---
+    async function saveWageRate() {
+        const val = document.getElementById('rate_per_quintal').value;
+        if(!val || val <= 0) return alert("Please enter a valid rate");
+        await db.settings.where('key').equals('wage_rate').delete();
+        await db.settings.add({key: 'wage_rate', value: val});
+        alert("Wage Rate updated to ₹" + val + " per quintal");
+    }
+
+    async function autoCalculateWages() {
+        const date = document.getElementById('main_date_picker').value;
+        const hulls = await db.hulling.where('date').equals(date).toArray();
+        const totalKg = hulls.reduce((s, i) => s + parseFloat(i.weight || 0), 0);
+        const quintals = totalKg / 100;
+        
+        const storedRate = await db.settings.where('key').equals('wage_rate').first();
+        const rate = storedRate ? storedRate.value : 23;
+        
+        const totalWage = (quintals * rate).toFixed(2);
+        
+        document.getElementById('exp_name').value = `Daily Wages (${quintals.toFixed(2)} Qnt)`;
+        document.getElementById('exp_amount').value = totalWage;
+    }
+
+    // --- Basic Calcs ---
     function calculateHulling() {
         const w = document.getElementById('h_weight').value || 0;
         const r = document.getElementById('h_rate').value || 0;
@@ -163,14 +217,86 @@
         document.getElementById('st_amount').value = (qty * rate).toFixed(2);
     }
 
+    // --- Save Functions ---
+    async function saveExpense(category) {
+        let name, amt;
+        if(category === 'Wages') {
+            name = document.getElementById('exp_name').value;
+            amt = document.getElementById('exp_amount').value;
+        } else {
+            name = document.getElementById('bill_type').value;
+            amt = document.getElementById('bill_amount').value;
+        }
+        if(!amt) return alert("Enter amount");
+        await db.expenses.add({ name, type: category, amount: amt, date: document.getElementById('main_date_picker').value });
+        alert("Saved!");
+        viewDayDetails(); refreshDashboard();
+        if(category === 'Wages') { document.getElementById('exp_name').value = ""; document.getElementById('exp_amount').value = ""; }
+        else { document.getElementById('bill_amount').value = ""; }
+    }
+
+    async function saveHullingEntry() {
+        const d = { name: document.getElementById('h_name').value.trim(), weight: document.getElementById('h_weight').value, total: document.getElementById('h_total_display').innerText, date: document.getElementById('main_date_picker').value };
+        if(!d.name || !d.weight) return alert("Enter name and weight");
+        await db.hulling.add(d);
+        alert("Hulling Saved");
+        document.getElementById('h_name').value = ""; document.getElementById('h_weight').value = "";
+        viewDayDetails(); refreshDashboard();
+    }
+
+    async function saveStockTx() {
+        const d = { name: document.getElementById('st_name').value.trim(), action: document.getElementById('st_action').value, type: document.getElementById('st_type').value, weight: document.getElementById('st_weight').value, amount: document.getElementById('st_amount').value, date: document.getElementById('main_date_picker').value };
+        if(!d.name || !d.weight) return alert("Fill data");
+        await db.stock.add(d);
+        alert("Stock Saved");
+        document.getElementById('st_name').value = ""; document.getElementById('st_weight').value = ""; document.getElementById('st_rate').value = ""; document.getElementById('st_amount').value = "";
+        viewDayDetails(); refreshDashboard();
+    }
+
+    // --- UI Helpers ---
+    async function refreshDashboard() {
+        const dateStr = document.getElementById('main_date_picker').value;
+        const range = document.getElementById('report_range').value;
+        let h = await db.hulling.toArray();
+        let s = await db.stock.toArray();
+        let e = await db.expenses.toArray();
+
+        const filterDate = (arr) => {
+            if(range==='day') return arr.filter(x => x.date === dateStr);
+            if(range==='month') return arr.filter(x => x.date.startsWith(dateStr.substring(0,7)));
+            return arr.filter(x => x.date.startsWith(dateStr.substring(0,4)));
+        };
+
+        h = filterDate(h); s = filterDate(s); e = filterDate(e);
+
+        const inc = h.reduce((a,b) => a + parseFloat(b.total), 0) + s.filter(x => x.action === 'Sale').reduce((a,b) => a + parseFloat(b.amount), 0);
+        const exp = s.filter(x => x.action === 'Purchase').reduce((a,b) => a + parseFloat(b.amount), 0) + e.reduce((a,b) => a + parseFloat(b.amount), 0);
+
+        document.getElementById('dash_income').innerText = `₹${inc.toFixed(2)}`;
+        document.getElementById('dash_expense').innerText = `₹${exp.toFixed(2)}`;
+
+        const ctx = document.getElementById('financeChart').getContext('2d');
+        if(myChart) myChart.destroy();
+        myChart = new Chart(ctx, { type: 'pie', data: { labels: ['Income', 'Expense'], datasets: [{ data: [inc, exp], backgroundColor: ['#4caf50', '#f44336'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+    }
+
+    async function viewDayDetails() {
+        const date = document.getElementById('main_date_picker').value;
+        const h = await db.hulling.where('date').equals(date).toArray();
+        const s = await db.stock.where('date').equals(date).toArray();
+        const e = await db.expenses.where('date').equals(date).toArray();
+        document.getElementById('day_customer_list').innerHTML = `<h3>Activity Log - ${date}</h3>` + 
+            h.map(x => `<div class="log-item"><b>Hulling:</b> ${x.name} - ₹${x.total} <button class="btn-del" onclick="deleteItem('hulling', ${x.id})">X</button></div>`).join('') +
+            s.map(x => `<div class="log-item"><b>${x.action}:</b> ${x.type} (${x.name}) - ₹${x.amount} <button class="btn-del" onclick="deleteItem('stock', ${x.id})">X</button></div>`).join('') +
+            e.map(x => `<div class="log-item"><b>${x.type}:</b> ${x.name} - ₹${x.amount} <button class="btn-del" onclick="deleteItem('expenses', ${x.id})">X</button></div>`).join('');
+    }
+
     async function updateDropdowns() {
-        const items = await db.settings.toArray();
-        const cats = { paddy: "Paddy Types", rice: "Rice Varieties", misc: "Misc/Sale Items" };
+        const items = await db.settings.filter(i => i.fullName).toArray();
+        const cats = { paddy: "Paddy", rice: "Rice", misc: "Other (Diesel/Salt)" };
         let html = "";
         for (let k in cats) {
-            html += `<h4>${cats[k]}</h4>`;
-            const filtered = items.filter(i => i.category === k);
-            html += filtered.map(i => `<div class="type-tag"><span>${i.fullName}</span><button class="btn-del" onclick="deleteItem('settings', ${i.id})">Del</button></div>`).join('');
+            html += `<h4>${cats[k]}</h4>` + items.filter(i => i.category === k).map(i => `<div class="type-tag"><span>${i.fullName}</span><button class="btn-del" onclick="deleteItem('settings', ${i.id})">Del</button></div>`).join('');
         }
         document.getElementById('settings_list').innerHTML = html;
         updateStockDropdown();
@@ -178,21 +304,16 @@
 
     async function updateStockDropdown() {
         const action = document.getElementById('st_action').value;
-        const items = await db.settings.toArray();
+        const items = await db.settings.filter(i => i.fullName).toArray();
         let html = "";
         if(action === 'Purchase') {
-            items.filter(i => i.category === 'paddy').forEach(p => {
-                const n = p.fullName;
-                // FIXED: Added Red-N and White-N options
-                html += `<option value="${n}-Red-O">${n}-Red-O</option>`;
-                html += `<option value="${n}-Red-N">${n}-Red-N</option>`;
-                html += `<option value="${n}-White-O">${n}-White-O</option>`;
-                html += `<option value="${n}-White-N">${n}-White-N</option>`;
+            items.filter(i => i.category === 'paddy' || i.category === 'misc').forEach(p => {
+                if(p.category === 'paddy') html += `<option value="${p.fullName}-Red-O">${p.fullName}-Red-O</option><option value="${p.fullName}-White-O">${p.fullName}-White-O</option>`;
+                else html += `<option value="${p.fullName}">${p.fullName}</option>`;
             });
-        } else if(action === 'Sale') {
-            items.filter(i => i.category === 'rice').forEach(r => html += `<option value="${r.fullName}">${r.fullName}</option>`);
         } else {
-            items.filter(i => i.category === 'misc').forEach(m => html += `<option value="${m.fullName}">${m.fullName}</option>`);
+            items.filter(i => i.category === 'rice' || i.category === 'misc').forEach(r => html += `<option value="${r.fullName}">${r.fullName}</option>`);
+            html += `<option value="Husk Load">Husk Load</option>`;
         }
         document.getElementById('st_type').innerHTML = html;
     }
@@ -201,104 +322,7 @@
         const val = document.getElementById('new_item_val').value.trim();
         if(!val) return;
         await db.settings.add({ fullName: val, category: cat });
-        updateDropdowns();
-        document.getElementById('new_item_val').value = '';
-    }
-
-    async function refreshDashboard() {
-        const dateStr = document.getElementById('main_date_picker').value;
-        const range = document.getElementById('report_range').value;
-        let hData = await db.hulling.toArray();
-        let sData = await db.stock.toArray();
-
-        if(range === 'day') { hData = hData.filter(d => d.date === dateStr); sData = sData.filter(d => d.date === dateStr); }
-        else if(range === 'month') { const m = dateStr.substring(0, 7); hData = hData.filter(d => d.date.startsWith(m)); sData = sData.filter(d => d.date.startsWith(m)); }
-        else { const y = dateStr.substring(0, 4); hData = hData.filter(d => d.date.startsWith(y)); sData = sData.filter(d => d.date.startsWith(y)); }
-
-        const totalInc = hData.reduce((s, i) => s + parseFloat(i.total), 0) + sData.filter(s => s.action !== 'Purchase').reduce((s, i) => s + parseFloat(i.amount), 0);
-        const totalExp = sData.filter(s => s.action === 'Purchase').reduce((s, i) => s + parseFloat(i.amount), 0);
-
-        document.getElementById('dash_income').innerText = `₹${totalInc.toFixed(2)}`;
-        document.getElementById('dash_expense').innerText = `₹${totalExp.toFixed(2)}`;
-        const net = totalInc - totalExp;
-        document.getElementById('dash_net').innerText = `Profit/Loss: ₹${net.toFixed(2)}`;
-        document.getElementById('dash_net').style.color = net >= 0 ? 'green' : 'red';
-
-        const ctx = document.getElementById('financeChart').getContext('2d');
-        if(myChart) myChart.destroy();
-        myChart = new Chart(ctx, { type: 'bar', data: { labels: ['Income', 'Expense'], datasets: [{ data: [totalInc, totalExp], backgroundColor: ['#4caf50', '#f44336'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
-    }
-
-    function generateHullingPDF(data) {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        doc.setFontSize(18); doc.setTextColor(46, 125, 50); 
-        doc.text("PARSHWANATHA RICE MILL", 105, 18, {align: "center"});
-        doc.setFontSize(10); doc.setTextColor(0);
-        doc.text("+91 9482364402, +91 8861080602", 105, 24, {align: "center"});
-        doc.text("SULLALLI, KARNATAKA", 105, 29, {align: "center"});
-        doc.line(20, 34, 190, 34);
-        doc.setFontSize(12); doc.text(`Customer: ${data.name}`, 20, 45); doc.text(`Date: ${data.date}`, 150, 45);
-        doc.rect(20, 55, 170, 40); doc.line(20, 65, 190, 65); doc.line(140, 55, 140, 95);
-        doc.setFont("helvetica", "bold"); doc.text("Description", 25, 61); doc.text("Details", 145, 61);
-        doc.setFont("helvetica", "normal"); doc.text("Paddy Hulling Service", 25, 75); doc.text(`${data.weight} kg`, 145, 75);
-        doc.setFont("helvetica", "bold"); doc.text("TOTAL BILL", 25, 88); doc.text(`Rs. ${data.total}`, 145, 88);
-        doc.setFontSize(9); doc.text("Authorized Signature", 150, 115);
-        doc.save(`Bill_${data.name}.pdf`);
-    }
-
-    async function saveHullingEntry() {
-        const d = { name: document.getElementById('h_name').value.trim(), weight: document.getElementById('h_weight').value, total: document.getElementById('h_total_display').innerText, date: document.getElementById('main_date_picker').value };
-        if(!d.name || !d.weight) return alert("Fill data");
-        await db.hulling.add(d); generateHullingPDF(d); viewDayDetails(); refreshDashboard();
-        document.getElementById('h_name').value = ""; document.getElementById('h_weight').value = "";
-    }
-
-    async function saveStockTx() {
-        const d = { name: document.getElementById('st_name').value.trim(), action: document.getElementById('st_action').value, type: document.getElementById('st_type').value, weight: document.getElementById('st_weight').value, amount: document.getElementById('st_amount').value, date: document.getElementById('main_date_picker').value };
-        if(!d.name || !d.weight) return alert("Please fill Party Name and Quantity.");
-        await db.stock.add(d); viewDayDetails(); refreshDashboard();
-        document.getElementById('st_name').value = "";
-        document.getElementById('st_weight').value = "";
-        document.getElementById('st_rate').value = "";
-        document.getElementById('st_amount').value = "";
-    }
-
-    async function viewDayDetails() {
-        const date = document.getElementById('main_date_picker').value;
-        const h = await db.hulling.where('date').equals(date).toArray();
-        const s = await db.stock.where('date').equals(date).toArray();
-        document.getElementById('day_customer_list').innerHTML = `<h3>Hulling Today</h3>${h.map(e => `<div class="log-item"><button class="btn-del" onclick="deleteItem('hulling', ${e.id})">Del</button><strong>${e.name}</strong><br>${e.weight}kg | ₹${e.total}</div>`).join('')}<h3>Stock Transactions</h3>${s.map(e => `<div class="log-item"><button class="btn-del" onclick="deleteItem('stock', ${e.id})">Del</button><strong>${e.name}</strong> (${e.action})<br>${e.type} | ₹${e.amount}</div>`).join('')}`;
-    }
-
-    async function exportData() {
-        const data = { settings: await db.settings.toArray(), hulling: await db.hulling.toArray(), stock: await db.stock.toArray() };
-        const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `MillBackup.json`; a.click();
-    }
-
-    async function importData(event) {
-        const file = event.target.files[0];
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const data = JSON.parse(e.target.result);
-            await db.settings.clear(); await db.hulling.clear(); await db.stock.clear();
-            if(data.settings) await db.settings.bulkAdd(data.settings);
-            if(data.hulling) await db.hulling.bulkAdd(data.hulling);
-            if(data.stock) await db.stock.bulkAdd(data.stock);
-            location.reload();
-        };
-        reader.readAsText(file);
-    }
-
-    async function exportToExcel() {
-        const m = document.getElementById('main_date_picker').value.substring(0, 7);
-        const h = await db.hulling.filter(x => x.date.startsWith(m)).toArray();
-        const s = await db.stock.filter(x => x.date.startsWith(m)).toArray();
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(h), "Hulling");
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s), "Stock");
-        XLSX.writeFile(wb, `Report_${m}.xlsx`);
+        updateDropdowns(); document.getElementById('new_item_val').value = '';
     }
 
     function openTab(evt, tabName) {
@@ -309,7 +333,21 @@
         if(tabName === 'dashboard-tab') refreshDashboard();
     }
 
-    async function deleteItem(table, id) { if(confirm("Delete?")) { await db[table].delete(id); updateDropdowns(); viewDayDetails(); refreshDashboard(); } }
+    async function deleteItem(table, id) { if(confirm("Confirm Delete?")) { await db[table].delete(id); viewDayDetails(); refreshDashboard(); updateDropdowns(); } }
+
+    async function exportData() {
+        const data = { 
+            settings: await db.settings.toArray(), 
+            hulling: await db.hulling.toArray(), 
+            stock: await db.stock.toArray(), 
+            expenses: await db.expenses.toArray() 
+        };
+        const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `MillData_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+    }
 </script>
 </body>
 </html>
