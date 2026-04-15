@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rice Mill Pro Manager</title>
+    
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        :root { --primary: #2e7d32; --secondary: #1565c0; --accent: #f57c00; --bg: #f0f2f5; }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; background: var(--bg); padding-bottom: 60px; }
+        
+        /* Header & Navigation */
+        header { background: var(--primary); color: white; padding: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .nav-bar { display: flex; background: white; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #ddd; }
+        .nav-item { flex: 1; padding: 15px; text-align: center; cursor: pointer; font-weight: 600; color: #666; }
+        .nav-item.active { border-bottom: 3px solid var(--primary); color: var(--primary); }
+
+        /* Form & Cards */
+        .container { padding: 15px; max-width: 600px; margin: auto; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        
+        h3 { margin-top: 0; color: var(--primary); border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        label { display: block; margin: 12px 0 5px; font-size: 0.9rem; color: #555; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; background: #fafafa; }
+        
+        /* Buttons */
+        button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; margin-top: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        button:active { filter: brightness(0.9); }
+        .btn-blue { background: var(--secondary); }
+        .btn-orange { background: var(--accent); }
+
+        /* Report Styles */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .box { background: #f9f9f9; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #eee; }
+        .amount { display: block; font-size: 1.2rem; font-weight: bold; margin-top: 5px; }
+        .profit { color: #2e7d32; }
+        .loss { color: #d32f2f; }
+    </style>
+</head>
+<body>
+
+<header>
+    <strong>RICE MILL DIGITAL LOG</strong>
+</header>
+
+<div class="nav-bar">
+    <div class="nav-item active" onclick="openTab(event, 'hulling-tab')">Hulling</div>
+    <div class="nav-item" onclick="openTab(event, 'milling-tab')">Production</div>
+    <div class="nav-item" onclick="openTab(event, 'report-tab')">Reports</div>
+</div>
+
+<div class="container">
+    
+    <div id="hulling-tab" class="tab-content active">
+        <div class="card">
+            <h3>Customer Hulling Service</h3>
+            <label>Customer Name</label>
+            <input type="text" id="h_name" placeholder="Search or Enter Name">
+            
+            <label>Paddy Weight (kg)</label>
+            <input type="number" id="
